@@ -1,4 +1,4 @@
-from .custom_exception import CustomException
+from app.exception.custom_exception import CustomException
 
 
 class RegistrationError(CustomException):
