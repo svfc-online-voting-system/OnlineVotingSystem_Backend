@@ -24,8 +24,10 @@ def create_account():
 		validate_password(plaintext_password)
 		if any(v is None for v in [first_name, last_name, email, plaintext_password, date_of_birth]):
 			raise RequiredError
-		authorization_token = AuthService.register(
+		auth_service_create_account = AuthService()
+		authorization_token = auth_service_create_account.register(
 			first_name, last_name, email, plaintext_password, date_of_birth)
+		
 		if authorization_token:
 			return jsonify({'status': 200, 'message': 'Creation Successful', 'authorization_token': authorization_token})
 	except IntegrityError as int_err:
@@ -46,7 +48,8 @@ def login():
 	email = user_data.get('email')
 	plaintext_password = user_data.get('password')
 	try:
-		authorization_token = AuthService.login(email, email, plaintext_password)
+		auth_service_login = AuthService()
+		authorization_token = auth_service_login.login(email, plaintext_password)
 		if authorization_token:
 			return jsonify({'status': 200, 'message': 'Login Successful', 'authorization_token': authorization_token})
 	except PasswordError:

@@ -1,6 +1,5 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-import dotenv
 import os
 import logging
 
@@ -15,7 +14,6 @@ logger.setLevel(logging.WARNING)
 logger.addHandler(file_handler)
 logger.addHandler(console_handler)
 
-dotenv.load_dotenv()
 
 DATABASE_URL = (
 	f"{os.getenv('DATABASE_BASE_URL')}"

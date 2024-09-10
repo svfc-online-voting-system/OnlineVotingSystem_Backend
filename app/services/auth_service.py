@@ -19,18 +19,16 @@ class AuthService:
 		
 		user_id = User.check_credentials(email, plaintext_password)
 		if user_id:
-			# logger.info(f"The user with email {email} successfully logged in at {datetime.now()}")
-			return self.generate_session_token(user_id, email)
-		
+			logger.info(f"The user with email {email} successfully logged in at {datetime.now()}")
+			return self.generate_session_token(email)
 		return None
 	
 	@staticmethod
-	def generate_session_token(user_id, email):
+	def generate_session_token(email):
 		"""Generate a session token during call as payload."""
-		return create_access_token(identity={'user_id': user_id, 'email': email})
+		return create_access_token(identity=email)
 	
-	@classmethod
-	def register(cls, first_name, last_name, email, plaintext_password, date_of_birth):
+	def register(self, first_name, last_name, email, plaintext_password, date_of_birth):
 		"""This is the function responsible for checking necessary constrain on the database if the current data in
 		question passed"""
 		try:
@@ -39,7 +37,7 @@ class AuthService:
 			user = User.create_user(first_name, last_name, email, plaintext_password, date_of_birth)
 			if user:
 				logger.info(f"The new user with email: {email} successfully created an account at {datetime.now()}")
-				return cls.generate_session_token(user.user_id, user.email)
+				return self.generate_session_token(email)
 		except EmailAlreadyTaken as eat:
 			raise eat
 		except IntegrityError as int_err:

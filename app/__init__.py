@@ -8,7 +8,6 @@ from app.routes.auth import auth_blueprint
 def create_app():
 	app = Flask(__name__)
 	
-	# Load secret keys and other configs from environment variables
 	app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY', 'default-secret-key')
 	
 	jwt = JWTManager(app)

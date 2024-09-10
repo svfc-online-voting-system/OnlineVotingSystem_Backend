@@ -74,5 +74,4 @@ class User(Base):
 			raise PasswordError
 
 		
-
 Base.metadata.create_all(bind=get_engine())
