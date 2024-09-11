@@ -1,10 +1,13 @@
-from app import create_app
+"""
+	Restful API for Online Voting System
+"""
+
 import dotenv
-import os
+from app import create_app
 
 dotenv.load_dotenv()
 
 app = create_app()
 
 if __name__ == '__main__':
-	app.run(host='0.0.0.0', port=os.getenv('FLASK_RUN_PORT', 5000), debug=os.getenv('FLASK_DEBUG', True))
+    app.run(host='0.0.0.0', port=5000, debug=False)
