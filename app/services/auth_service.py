@@ -46,7 +46,8 @@ class AuthService:
         """This is the function responsible for checking necessary constrain on
                         the database if the current data in question passed"""
         try:
-            if User.get_user_by_email(user_data.get('email')):
+            row = User.get_user_by_email(user_data.get('email'))
+            if row:
                 raise EmailAlreadyTaken
 
             user = User.create_user(user_data)
@@ -59,5 +60,7 @@ class AuthService:
             raise int_err
         except DatabaseError as db_err:
             raise db_err
+        except AssertionError as ae:
+            raise ae
         except Exception as e:
             raise e
