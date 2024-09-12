@@ -41,9 +41,8 @@ class SignUpSchema(Schema):
             'invalid': 'Date of birth is invalid. Please use the format YYYY-MM-DD.'
         }
     )
-    
     @post_load
-    def validate_age(self, data, **kwargs):
+    def validate_age(self, data):
         """ This will check if the user is of legal age. """
         dob = data.get('date_of_birth')
         if not dob:
