@@ -60,7 +60,7 @@ class User(Base):
             user_data_dict.get('first_name'),
             user_data_dict.get('last_name'),
             user_data_dict.get('email'),
-            user_data_dict.get('plaintext_password'),
+            user_data_dict.get('password'),
             user_data_dict.get('date_of_birth')
         )
 

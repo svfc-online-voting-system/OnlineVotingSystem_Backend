@@ -24,7 +24,11 @@ def create_account() -> Response:
     sign_up_schema = SignUpSchema()
     status = 200
     if request.json is None:
-        return jsonify([{'status': 400, 'message': 'Bad Request'}], status=400, mimetypes="application/json")
+        return make_response(
+            jsonify({
+                'status': 400,
+                'message': 'Bad Request',
+            }, status=400, mimetypes="application/json"))
 
     response = {'status': 400, 'message': 'Bad Request'}
     try:
@@ -32,22 +36,9 @@ def create_account() -> Response:
         if not isinstance(registration_data, dict):
             return make_response(jsonify({'message': 'Bad Request, validation error.'}), 400)
 
-        first_name = str(object=registration_data.get('firstname'))
-        last_name = str(object=registration_data.get('lastname'))
-        email = str(object=registration_data.get('email'))
-        plaintext_password = str(object=registration_data.get('password'))
-        date_of_birth = registration_data.get('date_of_birth')
-        user_data = {
-            'first_name': first_name,
-            'last_name': last_name,
-            'email': email,
-            'plaintext_password': plaintext_password,
-            'date_of_birth': date_of_birth
-        }
-
         auth_service_create_account = AuthService()
         authorization_token = auth_service_create_account.register(
-            user_data=user_data)
+            user_data=registration_data)
 
         if not authorization_token:
             response['message'] = 'Authorization token not generated'
@@ -76,7 +67,6 @@ def create_account() -> Response:
         logger.error("Database error %s: ", {db_err})
         response['message'] = "Something went wrong on our end"
         status = 500
-    print(response)
     return make_response(jsonify(response), status)
 
 
@@ -96,11 +86,9 @@ def login() -> Response:
             return make_response(jsonify({
                 'message': 'Oops, the data you provided is not valid.'
             }), status)
-        email = user_data.get('email')
-        plaintext_password = user_data.get('password')
         auth_service_login = AuthService()
         authorization_token = auth_service_login.login(
-            email, plaintext_password)
+            user_data.get('email'), user_data.get('password'))
         if not authorization_token:
             response['message'] = 'O-oh, something went wrong on our end.'
             status = 500
