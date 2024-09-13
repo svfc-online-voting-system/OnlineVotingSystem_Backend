@@ -2,10 +2,10 @@
         This module contains the routes for the authentication of users.
 """
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from sqlite3 import IntegrityError, DatabaseError
 
-from flask import Blueprint, request, Response, make_response, json
+from flask import Blueprint, request, Response, make_response, json, jsonify
 from marshmallow import ValidationError
 
 from app.exception.email_not_found_error import EmailNotFound
@@ -22,12 +22,20 @@ auth_service = AuthService()
 
 def set_response(status_code, messages, **kwargs):
     """Helper function to create a standard response."""
-    response = make_response()
+    response = make_response(jsonify(messages), status_code)
     response.headers['Content-Type'] = 'application/json'
     response.headers['Date'] = f"{datetime.now()}"
-    response.headers['Content-Security-Policy'] = "default-src 'self'"
     if 'authorization_token' in kwargs:
-        response.headers['Authorization'] = kwargs['authorization_token']
+        # Setting the token in a cookie
+        expires = datetime.now() + timedelta(days=1)  # Expire in 1 day
+        response.set_cookie(
+            'auth-token',
+            kwargs['authorization_token'],
+            httponly=True,  # Prevent JavaScript access to the cookie
+            secure=False,   # Set to True in production with HTTPS
+            samesite='Strict',
+            expires=expires
+        )
     response_data = json.dumps(messages)
     response.data = response_data
     response.status_code = status_code
@@ -115,12 +123,13 @@ def login() -> Response:
         status_code = 400
     except PasswordError:
         response_data = {
-            'code': 'invalid_data', 'message': 'Probably you mistyped your password.'
+            'code': 'password_incorrect', 'message': 'Probably you mistyped your password.'
         }
         status_code = 400
     except EmailNotFound:
         response_data = {
-            'code': 'invalid_data', 'message': 'Woah, we could not find an account with that email.'
+            'code': 'invalid_email',
+            'message': 'Woah, we could not find an account with that email.'
         }
         status_code = 404
     except TokenGenerationError as tge:
@@ -129,4 +138,14 @@ def login() -> Response:
         status_code = 500
     except DatabaseError as db_err:
         logger.error("Database error %s: ", {db_err})
+        response_data = {'code': 'server_error', 'message': 'Something went wrong on our end.'}
+        status_code = 500
     return set_response(status_code, response_data)
+
+
+@auth_blueprint.route(rule='/auth/logout', methods=['POST'])
+def logout() -> Response:
+    """ This is the route for logging out. """
+    response = make_response({'code': 'success', 'message': 'Logout Successful'}, 200)
+    response.delete_cookie('auth-token')
+    return response

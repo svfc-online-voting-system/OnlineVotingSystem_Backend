@@ -15,7 +15,7 @@ app = create_app()
 #     supports_credentials=True,
 #     resources={r"/app/": {"origins": "*"}}
 # )
-CORS(app, cors_allowed_origins="*")
+CORS(app, cors_allowed_origins="*", supports_credentials=True)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=False)
