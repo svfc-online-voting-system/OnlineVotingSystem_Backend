@@ -10,7 +10,7 @@ from sqlite3 import IntegrityError, DatabaseError
 import logging
 from flask_jwt_extended import create_access_token
 from app.exception.email_taken import EmailAlreadyTaken
-from app.exception.email_not_found import EmailNotFound
+from app.exception.email_not_found_error import EmailNotFound
 from app.models.users import User
 
 logger = logging.getLogger(__name__)

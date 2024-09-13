@@ -33,7 +33,7 @@ from sqlalchemy.exc import IntegrityError
 import bcrypt
 from app.utils.engine import get_session, get_engine
 from app.exception.password_error import PasswordError
-from app.exception.email_not_found import EmailNotFound
+from app.exception.email_not_found_error import EmailNotFound
 
 Base = declarative_base()
 
