@@ -5,7 +5,7 @@ import logging
 from datetime import datetime
 from sqlite3 import IntegrityError, DatabaseError
 
-from flask import Blueprint, request, jsonify, Response, make_response, json
+from flask import Blueprint, request, Response, make_response, json
 from marshmallow import ValidationError
 
 from app.exception.email_not_found_error import EmailNotFound
