@@ -3,6 +3,7 @@
 """
 import logging
 from datetime import datetime, timedelta
+import os
 from sqlite3 import IntegrityError, DatabaseError
 
 from flask import Blueprint, request, Response, make_response, json, jsonify
@@ -18,6 +19,8 @@ from app.services.auth_service import AuthService
 logger = logging.getLogger(name=__name__)
 auth_blueprint = Blueprint('auth', __name__)
 auth_service = AuthService()
+ENVIRONMENT = os.getenv('ENVIRONMENT', 'development')
+is_production = ENVIRONMENT == 'production'
 
 
 def set_response(status_code, messages, **kwargs):
@@ -27,12 +30,12 @@ def set_response(status_code, messages, **kwargs):
     response.headers['Date'] = f"{datetime.now()}"
     if 'authorization_token' in kwargs:
         # Setting the token in a cookie
-        expires = datetime.now() + timedelta(days=1)  # Expire in 1 day
+        expires = datetime.now() + timedelta(days=3)
         response.set_cookie(
             'auth-token',
             kwargs['authorization_token'],
-            httponly=True,  # Prevent JavaScript access to the cookie
-            secure=False,   # Set to True in production with HTTPS
+            httponly=True,
+            secure=is_production,
             samesite='Strict',
             expires=expires
         )
