@@ -78,10 +78,6 @@ def create_account() -> Response:
         status_code = 400
     except IntegrityError as int_err:
         logger.error("Integrity error %s: ", {int_err})
-    except AssertionError as asse:
-        logger.error("Assertion error %s: ", {asse})
-        response_data = {'code': 'invalid_data', 'message': f'{asse}'}
-        status_code = 400
     except TokenGenerationError as tge:
         logger.error("Token generation error %s: ", {tge})
         response_data = {'code': 'server_error', 'message': 'Something went wrong on our end.'}

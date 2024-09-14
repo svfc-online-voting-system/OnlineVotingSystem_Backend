@@ -60,7 +60,5 @@ class AuthService:
             raise int_err
         except DatabaseError as db_err:
             raise db_err
-        except AssertionError as ae:
-            raise ae
         except Exception as e:
             raise e
