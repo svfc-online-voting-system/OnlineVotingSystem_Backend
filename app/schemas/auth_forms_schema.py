@@ -42,7 +42,7 @@ class SignUpSchema(Schema):
         }
     )
     @post_load
-    def validate_age(self, data):
+    def validate_age(self, data, **kwargs):  # pylint: disable=unused-argument
         """ This will check if the user is of legal age. """
         dob = data.get('date_of_birth')
         if not dob:

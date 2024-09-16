@@ -98,6 +98,8 @@ def login() -> Response:
     status_code = 500  # Default status code for errors
     if request.json is None:
         return set_response(400, {'code': 'invalid_request', 'message': 'Bad Request'})
+    if not isinstance(request.json, dict):
+        return set_response(400, {'code': 'invalid_data', 'message': 'Invalid data format'})
     try:
         user_data = login_schema.load(request.json)
         if not isinstance(user_data, dict):

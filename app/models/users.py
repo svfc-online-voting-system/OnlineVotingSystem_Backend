@@ -76,8 +76,8 @@ class User(Base):
                 email=email,
                 date_of_birth=date_of_birth,
                 account_creation_date=account_creation_date,
-                first_name=first_name,
-                last_name=last_name
+                first_name=first_name.capitalize(),
+                last_name=last_name.capitalize()
             )
 
             session.add(new_user)
