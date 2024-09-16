@@ -10,7 +10,7 @@ from sqlite3 import IntegrityError, DatabaseError
 import logging
 from flask_jwt_extended import create_access_token
 from app.exception.email_taken import EmailAlreadyTaken
-from app.exception.email_not_found import EmailNotFound
+from app.exception.email_not_found_error import EmailNotFound
 from app.models.users import User
 
 logger = logging.getLogger(__name__)
@@ -46,7 +46,8 @@ class AuthService:
         """This is the function responsible for checking necessary constrain on
                         the database if the current data in question passed"""
         try:
-            if User.get_user_by_email(user_data.get('email')):
+            row = User.get_user_by_email(user_data.get('email'))
+            if row:
                 raise EmailAlreadyTaken
 
             user = User.create_user(user_data)

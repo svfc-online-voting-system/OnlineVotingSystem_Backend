@@ -33,7 +33,7 @@ from sqlalchemy.exc import IntegrityError
 import bcrypt
 from app.utils.engine import get_session, get_engine
 from app.exception.password_error import PasswordError
-from app.exception.email_not_found import EmailNotFound
+from app.exception.email_not_found_error import EmailNotFound
 
 Base = declarative_base()
 
@@ -60,7 +60,7 @@ class User(Base):
             user_data_dict.get('first_name'),
             user_data_dict.get('last_name'),
             user_data_dict.get('email'),
-            user_data_dict.get('plaintext_password'),
+            user_data_dict.get('password'),
             user_data_dict.get('date_of_birth')
         )
 
@@ -76,8 +76,8 @@ class User(Base):
                 email=email,
                 date_of_birth=date_of_birth,
                 account_creation_date=account_creation_date,
-                first_name=first_name,
-                last_name=last_name
+                first_name=first_name.capitalize(),
+                last_name=last_name.capitalize()
             )
 
             session.add(new_user)
