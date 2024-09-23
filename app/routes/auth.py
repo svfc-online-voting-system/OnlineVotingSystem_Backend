@@ -7,6 +7,7 @@ import os
 from sqlite3 import IntegrityError, DatabaseError
 
 from flask import Blueprint, request, Response, make_response, json, jsonify
+from jwt import ExpiredSignatureError, InvalidTokenError
 from marshmallow import ValidationError
 
 from app.exception.email_not_found_error import EmailNotFound
@@ -24,20 +25,27 @@ is_production = ENVIRONMENT == 'production'
 
 
 def set_response(status_code, messages, **kwargs):
-    """Helper function to create a standard response."""
+    """ This function sets the response for the routes. """
     response = make_response(jsonify(messages), status_code)
     response.headers['Content-Type'] = 'application/json'
     response.headers['Date'] = f"{datetime.now()}"
+    origin = \
+        'https://localhost:4200' if not is_production else 'https://online-voting-system.web.app'
+    response.headers['Access-Control-Allow-Origin'] = origin
+    response.headers['Access-Control-Allow-Credentials'] = 'true'
+    response.headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS, GET, DELETE, PUT'
+    response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+
     if 'authorization_token' in kwargs:
-        # Setting the token in a cookie
-        expires = datetime.now() + timedelta(days=3)
+        expires = datetime.now() + timedelta(days=365)
         response.set_cookie(
-            'auth-token',
-            kwargs['authorization_token'],
+            key='Authorization',
+            value=kwargs['authorization_token'],
             httponly=True,
-            secure=is_production,
-            samesite='Strict',
-            expires=expires
+            secure=True,
+            samesite='None',
+            expires=expires,
+            path='/'
         )
     response_data = json.dumps(messages)
     response.data = response_data
@@ -51,7 +59,7 @@ def create_account() -> Response:
     """ This is the route for creating an account. """
     sign_up_schema = SignUpSchema()
     response_data = {'code': 'server_error', 'message': 'Something went wrong on our end.'}
-    status_code = 500  # Default status code for errors
+    status_code = 500
     if request.json is None:
         return set_response(400, {'code': 'invalid_request', 'message': 'Bad Request'})
     try:
@@ -68,9 +76,8 @@ def create_account() -> Response:
         if not authorization_token:
             response_data['message'] = 'Something went wrong on our end.'
             raise TokenGenerationError('Token generation failed')
-        # Successful creation
         return set_response(200, {'code': 'success', 'message': 'Creation Successful'},
-                            authorization_token=f'Bearer {authorization_token}')
+                            authorization_token=authorization_token)
     except (ValidationError, ValueError) as ve:
         logger.error("Validation error %s: ", {ve})
         response_data = {'code': 'invalid_data', 'message': ve.messages}
@@ -95,7 +102,7 @@ def login() -> Response:
     """ This is the route for logging in. """
     login_schema = LoginSchema()
     response_data = {'code': 'server_error', 'message': 'Something went wrong on our end.'}
-    status_code = 500  # Default status code for errors
+    status_code = 500
     if request.json is None:
         return set_response(400, {'code': 'invalid_request', 'message': 'Bad Request'})
     if not isinstance(request.json, dict):
@@ -118,7 +125,7 @@ def login() -> Response:
             raise TokenGenerationError('Token generation failed')
         # Successful login
         return set_response(200, {'code': 'success', 'message': 'Login Successful'},
-                            authorization_token=f'Bearer {authorization_token}')
+                            authorization_token=authorization_token)
     except (ValidationError, ValueError) as ve:
         response_data = {'code': 'invalid_data', 'message': ve.messages}
         status_code = 400
@@ -150,3 +157,26 @@ def logout() -> Response:
     response = make_response({'code': 'success', 'message': 'Logout Successful'}, 200)
     response.delete_cookie('auth-token')
     return response
+
+
+@auth_blueprint.route('/auth/verify-jwt-identity', methods=['GET'])
+def verify_jwt_identity():
+    """ This is the route for verifying the JWT identity. """
+    try:
+        auth_service_verify_token = AuthService()
+        result = auth_service_verify_token.verify_token()
+        if result:
+            return set_response(200, {'code': 'success', 'message': 'JWT Identity verified.'})
+        return set_response(401, {'code': 'unauthorized', 'message': 'Unauthorized access.'})
+    except ExpiredSignatureError:
+        logger.warning("JWT token has expired")
+        return set_response(401,
+                            {'code': 'token_expired',
+                             'message': 'Your session has expired. Please log in again.'}
+                            )
+    except InvalidTokenError:
+        logger.warning("Invalid JWT token")
+        return set_response(401,
+                            {'code': 'invalid_token',
+                             'message': 'Invalid authentication token.'}
+                            )
