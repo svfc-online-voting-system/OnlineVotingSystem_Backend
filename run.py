@@ -1,4 +1,5 @@
 """ This module is used to run the Flask app. """
+# run.py
 import os
 import ssl
 import dotenv
@@ -8,7 +9,6 @@ from app import create_app
 
 dotenv.load_dotenv()
 
-
 def create_ssl_context():
     """ This function creates an SSL context for the Flask app. """
     ssl_context = ssl.SSLContext(protocol=ssl.PROTOCOL_TLS_SERVER)
@@ -17,7 +17,6 @@ def create_ssl_context():
         keyfile='certs/localhost+1-key.pem'
     )
     return ssl_context
-
 
 app = create_app()
 CORS(app, supports_credentials=True, origins=[f"{os.getenv('LOCAL_FRONTEND_URL')}"])
