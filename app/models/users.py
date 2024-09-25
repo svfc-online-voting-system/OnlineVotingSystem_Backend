@@ -190,7 +190,7 @@ class User(Base):
                                 .values(otp_secret=None, otp_expiry=None))
                 session.commit()
                 raise OTPExpiredException
-            if int(user_otp[0]) == int(otp) != user_otp[1] > datetime.now():
+            if int(user_otp[0]) != int(otp):
                 raise OTPIncorrectException
             session.execute(update(User).where(User.email == email)
                             .values(otp_secret=None, otp_expiry=None))

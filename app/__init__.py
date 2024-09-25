@@ -17,8 +17,9 @@ import os
 from flask import Flask
 from flask_mail import Mail
 from flask_jwt_extended import JWTManager
+from app.extension import mail
+from app.routes.auth import auth_blueprint
 
-mail = Mail()
 
 def create_app():
     """Factory function to create the Flask app instance."""
@@ -42,7 +43,6 @@ def create_app():
             logging.StreamHandler()
         ]
     )
-    from app.routes.auth import auth_blueprint  # pylint: disable=import-outside-toplevel
     app.register_blueprint(auth_blueprint)
     logging.getLogger()
     return app

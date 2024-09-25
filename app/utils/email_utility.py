@@ -1,7 +1,7 @@
 """ This module contains the email utility functions. """
 from flask_mail import Message, FlaskMailUnicodeDecodeError, BadHeaderError
 from app.exception.required_error import RequiredError
-from app import mail
+from app.extension import mail
 
 def send_mail(email: str, message: str, subject: str) -> str:
     """ This function sends an email. """
