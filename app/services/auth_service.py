@@ -64,10 +64,10 @@ class AuthService:
             raise eat
         except IntegrityError as int_err:
             raise int_err
-        except DatabaseError as db_err:
-            raise db_err
         except DataError as data_err:
             raise data_err
+        except DatabaseError as db_err:
+            raise db_err
         except Exception as e:
             raise e
     @staticmethod
@@ -135,8 +135,6 @@ class AuthService:
             raise oe
         except ValueError as ve:
             raise ve
-        except Exception as e:
-            raise e
         except PasswordResetExpiredException as pree:
             raise pree
         except PasswordResetLinkInvalidException as prli:

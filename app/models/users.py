@@ -155,7 +155,8 @@ class User(Base):
             reset_expiry = datetime.now() + timedelta(minutes=30)
             subject = "Password Reset Link"
             message = (f"Click the link to reset your password: "
-                       f"{cls.FRONT_END_FORGOT_PASSWORD_URL}{reset_token}")
+                       f"{cls.FRONT_END_FORGOT_PASSWORD_URL}{reset_token}"
+                       f"\n\nThis link will expire in 30 minutes.")
             session.execute(update(User).where(User.email == email)
                             .values(reset_token=reset_token, reset_expiry=reset_expiry))
             if send_mail(email=user.email, message=message, subject=subject):
@@ -171,9 +172,6 @@ class User(Base):
         except EmailNotFoundException as enf:
             session.rollback()
             raise enf
-        except Exception as e:
-            session.rollback()
-            raise e
     @classmethod
     def verify_forgot_password_token(cls, reset_token, new_password) -> str:
         """
@@ -183,8 +181,8 @@ class User(Base):
         try:
             if not reset_token or not new_password:
                 raise ValueError
-            user = session.execute(select(User.email, User.reset_expiry)
-                                  .where(User.reset_token == reset_token)).first()
+            user = session.execute(select(User.user_id, User.reset_expiry)
+                                   .where(User.reset_token == reset_token)).first()
             if user is None:
                 raise PasswordResetLinkInvalidException
             if user[1] < datetime.now():
@@ -202,9 +200,15 @@ class User(Base):
         except ValueError as ve:
             session.rollback()
             raise ve
-        except Exception as e:
+        except DataError as de:
             session.rollback()
-            raise e
+            print(de)
+            raise de
+        except OperationalError as oe:
+            session.rollback()
+            print(oe)
+            raise oe
+
     @classmethod
     def password_reset(cls, new_password, user_id):
         """

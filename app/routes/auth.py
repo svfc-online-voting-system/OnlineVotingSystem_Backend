@@ -9,7 +9,7 @@ from sqlite3 import IntegrityError, DatabaseError
 from flask import Blueprint, request, Response, make_response, json, jsonify
 from jwt import ExpiredSignatureError, InvalidTokenError
 from marshmallow import ValidationError
-from sqlalchemy.exc import DataError
+from sqlalchemy.exc import DataError, OperationalError
 
 from app.exception.email_not_found_error import EmailNotFoundException
 from app.exception.email_taken import EmailAlreadyTaken
@@ -19,6 +19,8 @@ from app.exception.password_error import PasswordErrorException
 from app.exception.token_generation_error import TokenGenerationError
 from app.schemas.auth_forms_schema import SignUpSchema, LoginSchema
 from app.services.auth_service import AuthService
+from app.exception.password_reset_expired import PasswordResetExpiredException
+from app.exception.password_reset_link_invalid import PasswordResetLinkInvalidException
 
 logger = logging.getLogger(name=__name__)
 auth_blueprint = Blueprint('auth', __name__)
@@ -175,6 +177,67 @@ def verify_jwt_identity() -> Response:
                             {'code': 'invalid_token',
                              'message': 'Invalid authentication token.'}
                             )
+
+@auth_blueprint.route(rule='/auth/verify-token-reset-password', methods=['POST'])
+def verify_token_reset_password():
+    """ Function for handling token verification for password reset."""
+    try:
+        token = request.json.get('token')
+        new_password = request.json.get('new_password')
+        if not token or not new_password or len(new_password) < 8:
+            raise ValueError
+        auth_service_token = AuthService()
+        if auth_service_token.verify_forgot_password_token(token, new_password):
+            return set_response(200, {
+                'code': 'success',
+                'message': 'Token Verified'
+            })
+        response_data = {'code': 'unauthorized', 'message': 'Unauthorized access.'}
+        status_code = 401
+    except OperationalError:
+        response_data = {'code': 'server_error', 'message': 'Something went wrong on our end.'}
+        status_code = 500
+    except ValueError:
+        response_data = {'code': 'invalid_data', 'message': 'Invalid data format'}
+        status_code = 400
+    except PasswordResetExpiredException:
+        response_data = {
+            'code': 'password_reset_expired',
+            'message': 'Password reset link has expired.'
+        }
+        status_code = 400
+    except PasswordResetLinkInvalidException:
+        response_data = {
+            'code': 'password_reset_invalid',
+            'message': 'Password reset link is invalid.'
+        }
+        status_code = 400
+    return set_response(status_code, response_data)
+@auth_blueprint.route(rule='/auth/forgot-password', methods=['POST'])
+def forgot_password():
+    """ Function for handling forgot password."""
+    try:
+        email = request.json.get('email')
+        if not email:
+            raise ValueError
+        auth_service_forgot_password = AuthService()
+        if auth_service_forgot_password.send_forgot_password_link(email):
+            return set_response(200, {
+                'code': 'success',
+                'message': 'Password reset link sent'
+            })
+        response_data = {'code': 'unauthorized', 'message': 'Unauthorized access.'}
+        status_code = 401
+    except OperationalError:
+        response_data = {'code': 'server_error', 'message': 'Something went wrong on our end.'}
+        status_code = 500
+    except ValueError:
+        response_data = {'code': 'invalid_data', 'message': 'Invalid data format'}
+        status_code = 400
+    except EmailNotFoundException:
+        response_data = {'code': 'email_not_found', 'message': 'Email not found'}
+        status_code = 404
+    return set_response(status_code, response_data)
 
 @auth_blueprint.route(rule='/auth/otp-verification', methods=["POST"])
 def otp_verification() -> Response:
