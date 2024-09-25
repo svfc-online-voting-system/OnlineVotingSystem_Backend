@@ -6,17 +6,18 @@
 """
 
 from datetime import datetime
-from sqlite3 import IntegrityError, DatabaseError
 import logging
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
 from jwt import ExpiredSignatureError, InvalidTokenError
-from sqlalchemy.exc import DataError
+from sqlalchemy.exc import DataError, IntegrityError, DatabaseError, OperationalError
 
 from app.exception.email_taken import EmailAlreadyTaken
 from app.exception.email_not_found_error import EmailNotFoundException
 from app.exception.otp_expired import OTPExpiredException
 from app.exception.otp_incorrect import OTPIncorrectException
 from app.models.users import User
+from app.exception.password_reset_expired import PasswordResetExpiredException
+from app.exception.password_reset_link_invalid import PasswordResetLinkInvalidException
 
 logger = logging.getLogger(__name__)
 
@@ -86,10 +87,14 @@ class AuthService:
         """This is the function responsible for generating the OTP."""
         try:
             return User.generate_otp(email=email)
+        except OperationalError as oe:
+            raise oe
         except ValueError as ve:
             raise ve
         except EmailNotFoundException as enf:
             raise enf
+        except Exception as e:
+            raise e
     def verify_otp(self, email, otp):
         """This is the function responsible for verifying the OTP """
         try:
@@ -98,6 +103,8 @@ class AuthService:
             return None
         except ValueError as ve:
             raise ve
+        except OperationalError as oe:
+            raise oe
         except OTPExpiredException as oee:
             raise oee
         except OTPIncorrectException as oie:
@@ -106,3 +113,31 @@ class AuthService:
             raise enf
         except Exception as e:
             raise e
+    @staticmethod
+    def send_forgot_password_link(email):
+        """This is the function responsible for the forgot password."""
+        try:
+            return User.send_forgot_password_link(email)
+        except OperationalError as oe:
+            raise oe
+        except ValueError as ve:
+            raise ve
+        except EmailNotFoundException as enf:
+            raise enf
+        except Exception as e:
+            raise e
+    @staticmethod
+    def verify_forgot_password_token(toke, new_password):
+        """This is the function responsible for verifying the forgot password token."""
+        try:
+            return User.verify_forgot_password_token(toke, new_password)
+        except OperationalError as oe:
+            raise oe
+        except ValueError as ve:
+            raise ve
+        except Exception as e:
+            raise e
+        except PasswordResetExpiredException as pree:
+            raise pree
+        except PasswordResetLinkInvalidException as prli:
+            raise prli

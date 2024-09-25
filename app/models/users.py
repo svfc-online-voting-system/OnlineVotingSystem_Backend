@@ -136,7 +136,7 @@ class User(Base):
                                    .filter_by(email=email)).first()
         raise PasswordErrorException
     @classmethod
-    def forgot_password(cls, email) -> str:
+    def send_forgot_password_link(cls, email) -> str:
         """
         Forgot password functionality function.
         In compliance with OWASP Recommendations. the password reset token should
@@ -175,7 +175,7 @@ class User(Base):
             session.rollback()
             raise e
     @classmethod
-    def forgot_password_verify_token(cls, reset_token, new_password) -> str:
+    def verify_forgot_password_token(cls, reset_token, new_password) -> str:
         """
         Function responsible for verifying the reset token.
         """
