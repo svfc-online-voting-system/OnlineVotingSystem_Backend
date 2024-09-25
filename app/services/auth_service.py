@@ -8,9 +8,14 @@
 from datetime import datetime
 from sqlite3 import IntegrityError, DatabaseError
 import logging
-from flask_jwt_extended import create_access_token
+from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
+from jwt import ExpiredSignatureError, InvalidTokenError
+from sqlalchemy.exc import DataError
+
 from app.exception.email_taken import EmailAlreadyTaken
-from app.exception.email_not_found_error import EmailNotFound
+from app.exception.email_not_found_error import EmailNotFoundException
+from app.exception.otp_expired import OTPExpiredException
+from app.exception.otp_incorrect import OTPIncorrectException
 from app.models.users import User
 
 logger = logging.getLogger(__name__)
@@ -18,30 +23,31 @@ logger = logging.getLogger(__name__)
 
 class AuthService:
     """ This class is responsible for the authentication of the user. """
-
-    def login(self, email, plaintext_password):
+    def login(self, email, plaintext_password) -> str:
         """
         This is for the login functionality. It checks first if the email
         found on the database, throws EmailNotFound if not found, otherwise
         proceed for checking the credentials.
         """
-        if not User.get_user_by_email(email):
-            raise EmailNotFound
-
-        user_id = User.check_credentials(email, plaintext_password)
-        if user_id:
-            logger.info(
-                "The user with email %s: successfully logged in at %s",
-                email, datetime.now()
-            )
-            return self.generate_session_token(email)
-        return None
-
+        try:
+            if not User.get_user_by_email(email):
+                raise EmailNotFoundException
+            user_id = User.check_credentials(email, plaintext_password)
+            if user_id:
+                logger.info(
+                    "The user with email %s: successfully logged in at %s",
+                    email, datetime.now()
+                )
+                return User.generate_otp(email)
+            return 'invalid_credentials'
+        except ValueError as ve:
+            raise ve
+        except EmailNotFoundException as enf:
+            raise enf
     @staticmethod
     def generate_session_token(email):
         """Generate a session token during call as payload."""
         return create_access_token(identity=email)
-
     def register(self, user_data):
         """This is the function responsible for checking necessary constrain on
                         the database if the current data in question passed"""
@@ -49,7 +55,6 @@ class AuthService:
             row = User.get_user_by_email(user_data.get('email'))
             if row:
                 raise EmailAlreadyTaken
-
             user = User.create_user(user_data)
             if user:
                 return self.generate_session_token(user_data.get('email'))
@@ -60,5 +65,44 @@ class AuthService:
             raise int_err
         except DatabaseError as db_err:
             raise db_err
+        except DataError as data_err:
+            raise data_err
+        except Exception as e:
+            raise e
+    @staticmethod
+    @jwt_required(locations=['cookies', 'headers'])
+    def verify_token():
+        """This is the function responsible for verifying the token."""
+        try:
+            jwt_identity = get_jwt_identity()
+            logger.info("JWT Identity verified for user: %s", jwt_identity)
+            return {'code': 'success', 'message': 'JWT Identity verified.'}, 200
+        except ExpiredSignatureError as ese:
+            raise ese
+        except InvalidTokenError as ite:
+            raise ite
+    @staticmethod
+    def generate_otp(email):
+        """This is the function responsible for generating the OTP."""
+        try:
+            return User.generate_otp(email=email)
+        except ValueError as ve:
+            raise ve
+        except EmailNotFoundException as enf:
+            raise enf
+    def verify_otp(self, email, otp):
+        """This is the function responsible for verifying the OTP """
+        try:
+            if User.verify_otp(email=email, otp=otp):
+                return self.generate_session_token(email)
+            return None
+        except ValueError as ve:
+            raise ve
+        except OTPExpiredException as oee:
+            raise oee
+        except OTPIncorrectException as oie:
+            raise oie
+        except EmailNotFoundException as enf:
+            raise enf
         except Exception as e:
             raise e

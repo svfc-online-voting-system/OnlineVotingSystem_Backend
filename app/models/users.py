@@ -25,15 +25,24 @@
     Returns:
             user: User
 """
+import base64
+import hashlib
+from datetime import datetime, timedelta
+import os
+import time
 
-from datetime import datetime
-from sqlalchemy import Column, Integer, String, Date, select
+from sqlalchemy import Column, Integer, String, Date, select, update
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, DataError, OperationalError
 import bcrypt
+import pyotp
+
+from app.utils.email_utility import send_mail
 from app.utils.engine import get_session, get_engine
-from app.exception.password_error import PasswordError
-from app.exception.email_not_found_error import EmailNotFound
+from app.exception.password_error import PasswordErrorException
+from app.exception.email_not_found_error import EmailNotFoundException
+from app.exception.otp_expired import OTPExpiredException
+from app.exception.otp_incorrect import OTPIncorrectException
 
 Base = declarative_base()
 
@@ -50,6 +59,10 @@ class User(Base):
     account_creation_date = Column(Date, nullable=False)
     first_name = Column(String(100), nullable=False)
     last_name = Column(String(100), nullable=False)
+    otp_secret = Column(String(20), nullable=True)
+    otp_expiry = Column(Date, nullable=True)
+    reset_token = Column(String(120), nullable=True)
+    reset_expiry = Column(Date, nullable=True)
 
     @classmethod
     def create_user(cls, user_data_dict):
@@ -86,6 +99,9 @@ class User(Base):
         except IntegrityError as int_err:
             session.rollback()
             raise int_err
+        except DataError as data_err:
+            session.rollback()
+            raise data_err
         except Exception as e:
             session.rollback()
             raise e
@@ -105,7 +121,7 @@ class User(Base):
             select(User.hashed_password).filter_by(email=email)).first()
 
         if hashed_password_row is None:
-            raise EmailNotFound
+            raise EmailNotFoundException
 
         hashed_password_from_db = hashed_password_row[0]
 
@@ -115,7 +131,89 @@ class User(Base):
         ):
             return session.execute(select(User.user_id)
                                    .filter_by(email=email)).first()
-        raise PasswordError
+        raise PasswordErrorException
+    @classmethod
+    def generate_otp(cls, email) -> str:
+        """
+        Function responsible for generating OTP Code
+        that also verifies if the email does exist.
+        """
+        session = get_session()
+        try:
+            if not email:
+                raise ValueError
+            user = cls.get_user_by_email(email)
+            if user is None:
+                raise EmailNotFoundException
+            unique_seed = f"{os.getenv('TOTP_SECRET_KEY')}{int(time.time())}"
+            seven_digit_otp = pyotp.TOTP(base64.b32encode(bytes.fromhex(unique_seed))
+                                         .decode('UTF-8'),
+                                         digits=7, interval=300, digest=hashlib.sha256).now()
+            otp_expiry = datetime.now() + timedelta(minutes=5)
+            subject = "Your OTP Verification code"
+            message =\
+                f"Here's your OTP Code: {seven_digit_otp}. Use this to get access to your account."
+            session.execute(update(User).where(User.email == email)
+                            .values(otp_secret=seven_digit_otp, otp_expiry=otp_expiry))
+            if send_mail(email=user.email, message=message, subject=subject):
+                session.commit()
+                return 'otp_sent'
+            raise OperationalError
+        except OperationalError as oe:
+            session.rollback()
+            raise oe
+        except ValueError as ve:
+            session.rollback()
+            raise ve
+        except EmailNotFoundException as enf:
+            session.rollback()
+            raise enf
+        except Exception as e:
+            session.rollback()
+            raise e
+    @classmethod
+    def verify_otp(cls, email, otp) -> str:
+        """Function responsible for verifying the OTP Code."""
+        session = get_session()
+        try:
+            if not email or not otp:
+                raise ValueError
+            user = cls.get_user_by_email(email)
+            if user is None:
+                raise EmailNotFoundException
+            user_otp = session.execute(select(User.otp_secret, User.otp_expiry)
+                                       .where(User.email == email)).first()
+            if user_otp[0] is None or user_otp[1] is None:
+                raise OTPExpiredException
+            if user_otp[1] < datetime.now():
+                session.execute(update(User).where(User.email == email)
+                                .values(otp_secret=None, otp_expiry=None))
+                session.commit()
+                raise OTPExpiredException
+            if int(user_otp[0]) != int(otp):
+                raise OTPIncorrectException
+            session.execute(update(User).where(User.email == email)
+                            .values(otp_secret=None, otp_expiry=None))
+            session.commit()
+            return 'otp_verified'
+        except OperationalError as oe:
+            session.rollback()
+            raise oe
+        except OTPExpiredException as oee:
+            session.rollback()
+            raise oee
+        except ValueError as ve:
+            session.rollback()
+            raise ve
+        except OTPIncorrectException as oie:
+            session.rollback()
+            raise oie
+        except EmailNotFoundException as enf:
+            session.rollback()
+            raise enf
+        except Exception as e:
+            session.rollback()
+            raise e
 
 
 Base.metadata.create_all(bind=get_engine())
