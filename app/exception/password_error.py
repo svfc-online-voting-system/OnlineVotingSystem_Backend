@@ -1,14 +1,12 @@
 """
-	This file contains the PasswordError class which is a custom exception
-	class that will be thrown if the user does have an email registered
-	but with the wrong password.
+This module is responsible for handling the password error exception.
 """
 from app.exception.custom_exception import CustomException
 
 
 class PasswordErrorException(CustomException):
-    """This will be thrown if the user does have an email registered but with the wrong password."""
+    """This class is responsible for handling the password error exception."""
 
-    def __init__(self, message="User not found."):
+    def __init__(self, message="Password is incorrect."):
         self.message = message
         super().__init__(message)

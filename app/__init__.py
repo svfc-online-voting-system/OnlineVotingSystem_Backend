@@ -15,7 +15,6 @@ Returns:
 import logging
 import os
 from flask import Flask
-from flask_mail import Mail
 from flask_jwt_extended import JWTManager
 from app.extension import mail
 from app.routes.auth import auth_blueprint
