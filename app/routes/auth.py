@@ -82,26 +82,22 @@ def create_account() -> Response:
             raise TokenGenerationError('Token generation failed')
         return set_response(200, {'code': 'success', 'message': 'Creation Successful'},
                             authorization_token=authorization_token)
-    except (ValidationError, ValueError) as ve:
+    except ValidationError as ve:
         logger.error("Validation error %s: ", {ve})
         response_data = {'code': 'invalid_data', 'message': ve.messages}
         status_code = 400
-    except EmailAlreadyTaken as eat:
-        logger.error("Email already taken error %s: ", {eat})
-        response_data = {'code': 'email_taken', 'message': 'Wait, that email is already taken.'}
+    except (ValueError, EmailAlreadyTaken) as e:
+        logger.error("Value error %s: ", {e})
+        response_data = {'code': 'invalid_data', 'message': f'{e}'}
         status_code = 400
-    except IntegrityError as int_err:
-        logger.error("Integrity error %s: ", {int_err})
+    except (IntegrityError, DataError, DatabaseError) as e:
+        logger.error("Database error %s: ", {e})
+        response_data = {'code': 'server_error', 'message': 'Something went wrong on our end.'}
+        status_code = 500
     except TokenGenerationError as tge:
         logger.error("Token generation error %s: ", {tge})
         response_data = {'code': 'server_error', 'message': 'Something went wrong on our end.'}
         status_code = 500
-    except DataError as data_err:
-        logger.error("Data error %s: ", {data_err})
-        response_data = {'code': 'invalid_data', 'message': 'Invalid data format'}
-        status_code = 400
-    except DatabaseError as db_err:
-        logger.error("Database error %s: ", {db_err})
     return set_response(status_code, response_data)
 
 
@@ -125,22 +121,17 @@ def login() -> Response:
         if not authentication_result:
             response_data['message'] = 'Something went wrong on our end.'
         if authentication_result == 'invalid_credentials':
-            raise PasswordErrorException
-        return set_response(200, {'code': 'success', 'message': f"{authentication_result}"})
-    except (ValidationError, ValueError) as ve:
+            raise PasswordErrorException('Invalid credentials')
+        return set_response(200, {
+            'code': 'success',
+            'message': "OTP has been sent to your email."
+        })
+    except ValidationError as ve:
         response_data = {'code': 'invalid_data', 'message': ve.messages}
         status_code = 400
-    except PasswordErrorException:
-        response_data = {
-            'code': 'password_incorrect', 'message': 'You mistyped your password.'
-        }
+    except (ValueError, PasswordErrorException, EmailNotFoundException) as e:
+        response_data = {'code': 'invalid_data', 'message': e}
         status_code = 400
-    except EmailNotFoundException:
-        response_data = {
-            'code': 'invalid_email',
-            'message': 'Woah, we could not find an account with that email.'
-        }
-        status_code = 404
     except DatabaseError as db_err:
         logger.error("Database error %s: ", {db_err})
         response_data = {'code': 'server_error', 'message': 'Something went wrong on our end.'}
@@ -185,7 +176,7 @@ def verify_token_reset_password():
         token = request.json.get('token')
         new_password = request.json.get('new_password')
         if not token or not new_password or len(new_password) < 8:
-            raise ValueError
+            raise ValueError('Invalid data format')
         auth_service_token = AuthService()
         if auth_service_token.verify_forgot_password_token(token, new_password):
             return set_response(200, {
@@ -194,24 +185,15 @@ def verify_token_reset_password():
             })
         response_data = {'code': 'unauthorized', 'message': 'Unauthorized access.'}
         status_code = 401
+    except (PasswordResetExpiredException, PasswordResetLinkInvalidException, ValueError) as e:
+        response_data = {
+            'code': 'password_reset_expired',
+            'message': f'{e}'
+        }
+        status_code = 400
     except OperationalError:
         response_data = {'code': 'server_error', 'message': 'Something went wrong on our end.'}
         status_code = 500
-    except ValueError:
-        response_data = {'code': 'invalid_data', 'message': 'Invalid data format'}
-        status_code = 400
-    except PasswordResetExpiredException:
-        response_data = {
-            'code': 'password_reset_expired',
-            'message': 'Password reset link has expired.'
-        }
-        status_code = 400
-    except PasswordResetLinkInvalidException:
-        response_data = {
-            'code': 'password_reset_invalid',
-            'message': 'Password reset link is invalid.'
-        }
-        status_code = 400
     return set_response(status_code, response_data)
 @auth_blueprint.route(rule='/auth/forgot-password', methods=['POST'])
 def forgot_password():
@@ -245,10 +227,8 @@ def otp_verification() -> Response:
     try:
         email = request.json.get('email')
         otp = request.json.get('otp_code')
-        if not email or not otp:
-            raise ValueError
-        if len(otp) != 7 or not otp.isdigit():
-            raise ValueError
+        if not email or not otp or len(otp) != 7 or not otp.isdigit():
+            raise ValueError('Invalid data format')
         auth_service_otp = AuthService()
         session_token = auth_service_otp.verify_otp(email=email, otp=otp)
         if session_token:
@@ -258,18 +238,13 @@ def otp_verification() -> Response:
             }, authorization_token=session_token)
         response_data = {'code': 'unauthorized', 'message': 'Unauthorized access.'}
         status_code = 401
-    except OTPExpiredException:
-        response_data = {'code': 'otp_expired', 'message': 'OTP has expired.'}
+    except (ValueError, OTPExpiredException, OTPIncorrectException,
+            EmailNotFoundException) as e:
+        response_data = {'code': 'invalid_data', 'message': f'{e}'}
         status_code = 400
-    except OTPIncorrectException:
-        response_data = {'code': 'otp_incorrect', 'message': 'OTP is incorrect.'}
-        status_code = 400
-    except ValueError:
-        response_data = {'code': 'invalid_data', 'message': 'Invalid data format'}
-        status_code = 400
-    except EmailNotFoundException:
-        response_data = {'code': 'email_not_found', 'message': 'Email not found'}
-        status_code = 404
+    except OperationalError:
+        response_data = {'code': 'server_error', 'message': 'Something went wrong on our end.'}
+        status_code = 500
     return set_response(status_code, response_data)
 
 @auth_blueprint.route(rule='/auth/generate-otp', methods=["POST"])
@@ -280,7 +255,7 @@ def generate_otp() -> Response:
     try:
         email = request.json.get('email')
         if not email:
-            raise ValueError
+            raise ValueError('Invalid data format')
         auth_service_otp = AuthService()
         if auth_service_otp.generate_otp(email=email):
             return set_response(200, {
@@ -289,10 +264,10 @@ def generate_otp() -> Response:
             })
         response_data = {'code': 'unauthorized', 'message': 'Unauthorized access.'}
         status_code = 401
-    except ValueError:
-        response_data = {'code': 'invalid_data', 'message': 'Invalid data format'}
+    except (ValueError, EmailNotFoundException) as e:
+        response_data = {'code': 'invalid_data', 'message': f'{e}'}
         status_code = 400
-    except EmailNotFoundException:
-        response_data = {'code': 'email_not_found', 'message': 'Email not found'}
-        status_code = 404
+    except OperationalError:
+        response_data = {'code': 'server_error', 'message': 'Something went wrong on our end.'}
+        status_code = 500
     return set_response(status_code, response_data)
