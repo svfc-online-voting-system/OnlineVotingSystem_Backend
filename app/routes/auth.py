@@ -11,16 +11,14 @@ from jwt import ExpiredSignatureError, InvalidTokenError
 from marshmallow import ValidationError
 from sqlalchemy.exc import DataError, OperationalError
 
-from app.exception.email_not_found_error import EmailNotFoundException
-from app.exception.email_taken import EmailAlreadyTaken
-from app.exception.otp_expired import OTPExpiredException
-from app.exception.otp_incorrect import OTPIncorrectException
-from app.exception.password_error import PasswordErrorException
-from app.exception.token_generation_error import TokenGenerationError
+from app.exception.authorization_exception import (EmailNotFoundException, OTPExpiredException,
+                                                   OTPIncorrectException,
+                                                   PasswordResetExpiredException,
+                                                   PasswordResetLinkInvalidException,
+                                                   EmailAlreadyTaken,
+                                                   PasswordErrorException)
 from app.schemas.auth_forms_schema import SignUpSchema, LoginSchema
 from app.services.auth_service import AuthService
-from app.exception.password_reset_expired import PasswordResetExpiredException
-from app.exception.password_reset_link_invalid import PasswordResetLinkInvalidException
 
 logger = logging.getLogger(name=__name__)
 auth_blueprint = Blueprint('auth', __name__)
@@ -29,13 +27,147 @@ ENVIRONMENT = os.getenv('ENVIRONMENT', 'development')
 is_production = ENVIRONMENT == 'production'
 
 
+def handle_validation_error(error):
+    """ This function handles validation errors. """
+    if isinstance(error, ValidationError):
+        logger.error("Validation error: %s", error)
+        return set_response(400, {
+            'code': 'invalid_data',
+            'message': error.messages
+        })
+    raise error
+
+
+def handle_email_not_found(error):
+    """ This function handles email not found exceptions. """
+    if isinstance(error, EmailNotFoundException):
+        logger.error("Email not found: %s", error)
+        return set_response(404, {
+            'code': 'email_not_found',
+            'message': 'Email not found.'
+        })
+    raise error
+
+
+def handle_otp_expired_exception(error):
+    """ This function handles OTP expired exceptions. """
+    if isinstance(error, OTPExpiredException):
+        logger.error("OTP expired: %s", error)
+        return set_response(400, {
+            'code': 'otp_expired',
+            'message': 'OTP has expired.'
+        })
+    raise error
+
+
+def handle_otp_incorrect_exception(error):
+    """ This function handles OTP incorrect exceptions. """
+    if isinstance(error, OTPIncorrectException):
+        logger.error("OTP incorrect: %s", error)
+        return set_response(400, {
+            'code': 'otp_incorrect',
+            'message': 'OTP is incorrect.'
+        })
+    raise error
+
+
+def handle_password_reset_expired_exception(error):
+    """ This function handles password reset expired exceptions. """
+    if isinstance(error, PasswordResetExpiredException):
+        logger.error("Password reset expired: %s", error)
+        return set_response(400, {
+            'code': 'password_reset_expired',
+            'message': 'Password reset link has expired.'
+        })
+    raise error
+
+
+def handle_password_reset_link_invalid_exception(error):
+    """ This function handles password reset link invalid exceptions. """
+    if isinstance(error, PasswordResetLinkInvalidException):
+        logger.error("Password reset link invalid: %s", error)
+        return set_response(400, {
+            'code': 'password_reset_link_invalid',
+            'message': 'Password reset link is invalid.'
+        })
+    raise error
+
+
+def handle_password_error_exception(error):
+    """ This function handles password errors. """
+    if isinstance(error, PasswordErrorException):
+        logger.error("Password error: %s", error)
+        return set_response(400, {
+            'code': 'password_error',
+            'message': 'Invalid credentials.'
+        })
+    raise error
+
+
+def handle_value_error(error):
+    """ This function handles value errors. """
+    if isinstance(error, ValueError):
+        logger.error("Value error: %s", error)
+        return set_response(400, {
+            'code': 'invalid_data',
+            'message': 'Invalid data format.'
+        })
+    raise error
+
+
+def handle_email_already_taken(error):
+    """ This function handles email already taken errors. """
+    if isinstance(error, EmailAlreadyTaken):
+        logger.error("Email already taken: %s", error)
+        return set_response(400, {
+            'code': 'email_already_taken',
+            'message': 'Email already taken.'
+        })
+    raise error
+
+
+def handle_database_errors(error):
+    """ This function handles database errors. """
+    if isinstance(error, (IntegrityError, DataError, DatabaseError, OperationalError)):
+        logger.error("Database error: %s", error)
+        return set_response(500, {
+            'code': 'server_error',
+            'message': 'A database error occurred. Please try again later.'
+        })
+    raise error
+
+
+def handle_general_exception(error):
+    """ This function handles general exceptions. """
+    logger.error("General exception: %s", error)
+    return set_response(500, {
+        'code': 'unexpected_error',
+        'message': 'An unexpected error occurred. Please try again later.'
+    })
+
+
+auth_blueprint.register_error_handler(Exception, handle_database_errors)
+auth_blueprint.register_error_handler(ValueError, handle_value_error)
+auth_blueprint.register_error_handler(ValidationError, handle_validation_error)
+auth_blueprint.register_error_handler(EmailAlreadyTaken, handle_email_already_taken)
+auth_blueprint.register_error_handler(PasswordErrorException, handle_password_error_exception)
+auth_blueprint.register_error_handler(EmailNotFoundException, handle_email_not_found)
+auth_blueprint.register_error_handler(OTPExpiredException, handle_otp_expired_exception)
+auth_blueprint.register_error_handler(OTPIncorrectException, handle_otp_incorrect_exception)
+auth_blueprint.register_error_handler(PasswordResetExpiredException,
+                                      handle_password_reset_expired_exception)
+auth_blueprint.register_error_handler(PasswordResetLinkInvalidException,
+                                      handle_password_reset_link_invalid_exception)
+auth_blueprint.register_error_handler(Exception, handle_general_exception)
+
+
 def set_response(status_code, messages, **kwargs):
     """ This function sets the response for the routes. """
     response = make_response(jsonify(messages), status_code)
     response.headers['Content-Type'] = 'application/json'
     response.headers['Date'] = f"{datetime.now()}"
-    origin = \
-        'https://localhost:4200' if not is_production else 'https://online-voting-system.web.app'
+    origin = 'https://localhost:4200' if not is_production else \
+        'https://online-voting-system.web.app'
     response.headers['Access-Control-Allow-Origin'] = origin
     response.headers['Access-Control-Allow-Credentials'] = 'true'
     response.headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS, GET, DELETE, PUT'
@@ -62,81 +194,52 @@ def set_response(status_code, messages, **kwargs):
 def create_account() -> Response:
     """ This is the route for creating an account. """
     sign_up_schema = SignUpSchema()
-    response_data = {'code': 'server_error', 'message': 'Something went wrong on our end.'}
-    status_code = 500
     if request.json is None:
-        return set_response(400, {'code': 'invalid_request', 'message': 'Bad Request'})
-    try:
-        registration_data = sign_up_schema.load(request.json)
-        if not isinstance(registration_data, dict):
-            response_data = {
-                'code': 'invalid_data',
-                'message': 'Oops we received an invalid and/or malformed data.'
-            }
-            status_code = 400
-            raise ValueError('Invalid data format')
-        auth_service_create_account = AuthService()
-        authorization_token = auth_service_create_account.register(user_data=registration_data)
-        if not authorization_token:
-            response_data['message'] = 'Something went wrong on our end.'
-            raise TokenGenerationError('Token generation failed')
-        return set_response(200, {'code': 'success', 'message': 'Creation Successful'},
-                            authorization_token=authorization_token)
-    except ValidationError as ve:
-        logger.error("Validation error %s: ", {ve})
-        response_data = {'code': 'invalid_data', 'message': ve.messages}
-        status_code = 400
-    except (ValueError, EmailAlreadyTaken) as e:
-        logger.error("Value error %s: ", {e})
-        response_data = {'code': 'invalid_data', 'message': f'{e}'}
-        status_code = 400
-    except (IntegrityError, DataError, DatabaseError) as e:
-        logger.error("Database error %s: ", {e})
-        response_data = {'code': 'server_error', 'message': 'Something went wrong on our end.'}
-        status_code = 500
-    except TokenGenerationError as tge:
-        logger.error("Token generation error %s: ", {tge})
-        response_data = {'code': 'server_error', 'message': 'Something went wrong on our end.'}
-        status_code = 500
-    return set_response(status_code, response_data)
-
+        return set_response(400, {
+            'code': 'invalid_request',
+            'message': 'Bad Request: No data provided.'})
+    registration_data = sign_up_schema.load(request.json)
+    if not isinstance(registration_data, dict):
+        raise ValueError('Invalid data format')
+    auth_service_create_account = AuthService()
+    result = auth_service_create_account.register(user_data=registration_data)
+    if not result:
+        return set_response(500, {
+            'code': 'server_error',
+            'message': 'Something went wrong on our end.'
+        })
+    return set_response(200, {
+        'code': 'success',
+        'message': 'Open your email for verification.'
+    })
 
 @auth_blueprint.route(rule='/auth/login', methods=['POST'])
 def login() -> Response:
     """ This is the route for logging in. """
     login_schema = LoginSchema()
-    response_data = {'code': 'server_error', 'message': 'Something went wrong on our end.'}
     if request.json is None:
         return set_response(400, {'code': 'invalid_request', 'message': 'Bad Request'})
     if not isinstance(request.json, dict):
         return set_response(400, {'code': 'invalid_data', 'message': 'Invalid data format'})
-    try:
-        user_data = login_schema.load(request.json)
-        if not isinstance(user_data, dict):
-            raise ValueError('Invalid data format')
-        auth_service_login = AuthService()
-        authentication_result = auth_service_login.login(
-            user_data.get('email'), user_data.get('password')
-        )
-        if not authentication_result:
-            response_data['message'] = 'Something went wrong on our end.'
-        if authentication_result == 'invalid_credentials':
-            raise PasswordErrorException('Invalid credentials')
-        return set_response(200, {
-            'code': 'success',
-            'message': "OTP has been sent to your email."
+    user_data = login_schema.load(request.json)
+    if not isinstance(user_data, dict):
+        raise ValueError('Invalid data format')
+    auth_service_login = AuthService()
+    authentication_result = auth_service_login.login(
+        user_data.get('email'), user_data.get('password')
+    )
+    if not authentication_result:
+        return set_response(500, {
+            'code': 'server_error',
+            'message': 'Something went wrong on our end.'
         })
-    except ValidationError as ve:
-        response_data = {'code': 'invalid_data', 'message': ve.messages}
-        status_code = 400
-    except (ValueError, PasswordErrorException, EmailNotFoundException) as e:
-        response_data = {'code': 'invalid_data', 'message': e}
-        status_code = 400
-    except DatabaseError as db_err:
-        logger.error("Database error %s: ", {db_err})
-        response_data = {'code': 'server_error', 'message': 'Something went wrong on our end.'}
-        status_code = 500
-    return set_response(status_code, response_data)
+    if authentication_result == 'invalid_credentials':
+        raise PasswordErrorException('Invalid credentials')
+    return set_response(200, {
+        'code': 'success',
+        'message': "OTP has been sent to your email."
+    })
+
 
 
 @auth_blueprint.route(rule='/auth/logout', methods=['POST'])
@@ -172,102 +275,75 @@ def verify_jwt_identity() -> Response:
 @auth_blueprint.route(rule='/auth/verify-token-reset-password', methods=['POST'])
 def verify_token_reset_password():
     """ Function for handling token verification for password reset."""
-    try:
-        token = request.json.get('token')
-        new_password = request.json.get('new_password')
-        if not token or not new_password or len(new_password) < 8:
-            raise ValueError('Invalid data format')
-        auth_service_token = AuthService()
-        if auth_service_token.verify_forgot_password_token(token, new_password):
-            return set_response(200, {
-                'code': 'success',
-                'message': 'Token Verified'
-            })
-        response_data = {'code': 'unauthorized', 'message': 'Unauthorized access.'}
-        status_code = 401
-    except (PasswordResetExpiredException, PasswordResetLinkInvalidException, ValueError) as e:
-        response_data = {
-            'code': 'password_reset_expired',
-            'message': f'{e}'
-        }
-        status_code = 400
-    except OperationalError:
-        response_data = {'code': 'server_error', 'message': 'Something went wrong on our end.'}
-        status_code = 500
-    return set_response(status_code, response_data)
+    token = request.json.get('token')
+    new_password = request.json.get('new_password')
+    if not token or not new_password:
+        raise ValueError('Invalid data format')
+    if len(new_password) < 8:
+        raise PasswordErrorException('Password must be at least 8 characters.')
+    auth_service_token = AuthService()
+    if auth_service_token.verify_forgot_password_token(token, new_password):
+        return set_response(200, {
+            'code': 'success',
+            'message': 'Token Verified'
+        })
+    return set_response(401, {
+        'code': 'unauthorized',
+        'message': 'Unauthorized access.'
+    })
+
+
 @auth_blueprint.route(rule='/auth/forgot-password', methods=['POST'])
 def forgot_password():
     """ Function for handling forgot password."""
-    try:
-        email = request.json.get('email')
-        if not email:
-            raise ValueError
-        auth_service_forgot_password = AuthService()
-        if auth_service_forgot_password.send_forgot_password_link(email):
-            return set_response(200, {
-                'code': 'success',
-                'message': 'Password reset link sent'
-            })
-        response_data = {'code': 'unauthorized', 'message': 'Unauthorized access.'}
-        status_code = 401
-    except OperationalError:
-        response_data = {'code': 'server_error', 'message': 'Something went wrong on our end.'}
-        status_code = 500
-    except ValueError:
-        response_data = {'code': 'invalid_data', 'message': 'Invalid data format'}
-        status_code = 400
-    except EmailNotFoundException:
-        response_data = {'code': 'email_not_found', 'message': 'Email not found'}
-        status_code = 404
-    return set_response(status_code, response_data)
+    email = request.json.get('email')
+    if not email:
+        raise ValueError
+    auth_service_forgot_password = AuthService()
+    if auth_service_forgot_password.send_forgot_password_link(email):
+        return set_response(200, {
+            'code': 'success',
+            'message': 'Password reset link sent'
+        })
+    return set_response(401, {
+        'code': 'unauthorized',
+        'message': 'Unauthorized access.'
+    })
 
 @auth_blueprint.route(rule='/auth/otp-verification', methods=["POST"])
 def otp_verification() -> Response:
     """ Function for handling otp verification"""
-    try:
-        email = request.json.get('email')
-        otp = request.json.get('otp_code')
-        if not email or not otp or len(otp) != 7 or not otp.isdigit():
-            raise ValueError('Invalid data format')
-        auth_service_otp = AuthService()
-        session_token = auth_service_otp.verify_otp(email=email, otp=otp)
-        if session_token:
-            return set_response(200, {
-                'code': 'success',
-                'message': 'OTP Verified'
-            }, authorization_token=session_token)
-        response_data = {'code': 'unauthorized', 'message': 'Unauthorized access.'}
-        status_code = 401
-    except (ValueError, OTPExpiredException, OTPIncorrectException,
-            EmailNotFoundException) as e:
-        response_data = {'code': 'invalid_data', 'message': f'{e}'}
-        status_code = 400
-    except OperationalError:
-        response_data = {'code': 'server_error', 'message': 'Something went wrong on our end.'}
-        status_code = 500
-    return set_response(status_code, response_data)
+    email = request.json.get('email')
+    otp = request.json.get('otp_code')
+    if not email or not otp or len(otp) != 7 or not otp.isdigit():
+        raise ValueError('Invalid data format')
+    auth_service_otp = AuthService()
+    session_token = auth_service_otp.verify_otp(email=email, otp=otp)
+    if session_token:
+        return set_response(200, {
+            'code': 'success',
+            'message': 'OTP Verified'
+        }, authorization_token=session_token)
+    return set_response(401, {
+        'code': 'unauthorized',
+        'message': 'Unauthorized access.'
+    })
 
 @auth_blueprint.route(rule='/auth/generate-otp', methods=["POST"])
 def generate_otp() -> Response:
     """ Function for handling otp generation.
     The use-case of this is when the user want to resend
     the otp code that previously sent to the user"""
-    try:
-        email = request.json.get('email')
-        if not email:
-            raise ValueError('Invalid data format')
-        auth_service_otp = AuthService()
-        if auth_service_otp.generate_otp(email=email):
-            return set_response(200, {
-                'code': 'success',
-                'message': 'OTP Generated'
-            })
-        response_data = {'code': 'unauthorized', 'message': 'Unauthorized access.'}
-        status_code = 401
-    except (ValueError, EmailNotFoundException) as e:
-        response_data = {'code': 'invalid_data', 'message': f'{e}'}
-        status_code = 400
-    except OperationalError:
-        response_data = {'code': 'server_error', 'message': 'Something went wrong on our end.'}
-        status_code = 500
-    return set_response(status_code, response_data)
+    email = request.json.get('email')
+    if not email:
+        raise ValueError('Invalid data format')
+    auth_service_otp = AuthService()
+    if auth_service_otp.generate_otp(email=email):
+        return set_response(200, {
+            'code': 'success',
+            'message': 'OTP Generated'
+        })
+    return set_response(401, {
+        'code': 'unauthorized',
+        'message': 'Unauthorized access.'
+    })

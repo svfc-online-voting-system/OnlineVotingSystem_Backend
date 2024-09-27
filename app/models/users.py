@@ -31,99 +31,88 @@ from datetime import datetime, timedelta
 import os
 import time
 
-from sqlalchemy import Column, Integer, String, Date, select, update
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.exc import IntegrityError, DataError, OperationalError
+from sqlalchemy import Column, Integer, String, Date, select, update, Boolean
+from sqlalchemy.orm import relationship
+from sqlalchemy.exc import IntegrityError, DataError, OperationalError, DatabaseError
 import bcrypt
 import pyotp
+from sqlalchemy.sql import expression
 
+from app.models.user_profile import UserProfile
 from app.utils.email_utility import send_mail
 from app.utils.engine import get_session, get_engine
-from app.exception.password_error import PasswordErrorException
-from app.exception.email_not_found_error import EmailNotFoundException
-from app.exception.otp_expired import OTPExpiredException
-from app.exception.otp_incorrect import OTPIncorrectException
-from app.exception.password_reset_expired import PasswordResetExpiredException
-from app.exception.password_reset_link_invalid import PasswordResetLinkInvalidException
-
-Base = declarative_base()
+from app.exception.authorization_exception import (EmailNotFoundException, OTPExpiredException,
+                                                   OTPIncorrectException, PasswordResetExpiredException,
+                                                   PasswordResetLinkInvalidException, PasswordErrorException)
+from app.models.base import Base
 
 
 class User(Base):
     """Class representing a User in the database."""
     __tablename__ = 'users'
     user_id = Column(Integer, primary_key=True, autoincrement=True)
-    username = Column(String(45), unique=True, nullable=False)
     salt = Column(String(45), nullable=False)
     hashed_password = Column(String(255), nullable=False)
-    email = Column(String(255), nullable=False)
-    date_of_birth = Column(Date, nullable=False)
-    account_creation_date = Column(Date, nullable=False)
-    first_name = Column(String(100), nullable=False)
-    last_name = Column(String(100), nullable=False)
     otp_secret = Column(String(20), nullable=True)
     otp_expiry = Column(Date, nullable=True)
     reset_token = Column(String(175), nullable=True)
     reset_expiry = Column(Date, nullable=True)
+    verified_account = Column(Boolean, default=expression.false(), nullable=False)
+    verification_token = Column(String(175), nullable=True)
+    verification_expiry = Column(Date, nullable=True)
+    
+    profile = relationship("UserProfile", back_populates="user", uselist=False, cascade="all, delete-orphan")
+    
     FRONT_END_FORGOT_PASSWORD_URL = os.getenv('LOCAL_FRONTEND_URL') + '/reset-password/'
 
     @classmethod
-    def create_user(cls, user_data_dict):
-        """ Creates a new user in the database. """
-        account_creation_date = datetime.now()
+    def create_new_user(cls, user_data: dict):
+        """Create a new user in the database."""
         session = get_session()
-        first_name, last_name, email, plaintext_password, date_of_birth = (
-            user_data_dict.get('first_name'),
-            user_data_dict.get('last_name'),
-            user_data_dict.get('email'),
-            user_data_dict.get('password'),
-            user_data_dict.get('date_of_birth')
-        )
-
         try:
-            salt = bcrypt.gensalt(rounds=16).decode('utf=8')
-            hashed_password = bcrypt.hashpw(plaintext_password.encode(
-                'utf-8'), salt.encode('utf-8')).decode('utf-8')
-
             new_user = cls(
-                username=email.split("@")[0],
-                salt=salt,
-                hashed_password=hashed_password,
-                email=email,
-                date_of_birth=date_of_birth,
-                account_creation_date=account_creation_date,
-                first_name=first_name.capitalize(),
-                last_name=last_name.capitalize()
+                salt=user_data.get("salt"),
+                hashed_password=user_data.get("password"),
+                verification_token=user_data.get("email_verification_token"),
+                verification_expiry=datetime.now() + timedelta(minutes=1440),
+                verified_account=False
             )
-
             session.add(new_user)
             session.commit()
-            return new_user
-        except (IntegrityError, DataError) as e:
+            return new_user.user_id
+        except (DataError, IntegrityError, OperationalError, DatabaseError) as e:
             session.rollback()
             raise e
         finally:
             session.close()
-
+    
+    
+    
     @classmethod
     def get_user_by_email(cls, email):
         """Retrieves a user from the database by email."""
         session = get_session()
         try:
-            return session.query(cls).filter_by(email=email).first()
+            stmt = (
+                select(User.user_id, UserProfile.email)
+                .where(User.user_id == UserProfile.user_id)
+                .where(UserProfile.email == email)
+            )
+            result = session.execute(stmt).first()
+            return result
         except OperationalError as oe:
             session.rollback()
             raise oe
         finally:
             session.close()
-
+    
     @classmethod
     def check_credentials(cls, email, plaintext_password):
         """Checks the credentials of a user."""
         session = get_session()
         try:
-            hashed_password_row = session.execute(
-                select(User.hashed_password).filter_by(email=email)).first()
+            hashed_password_row = session.query(select(User.hashed_password).join(UserProfile)
+                                                .where(UserProfile.email == email)).first()
             if hashed_password_row is None:
                 raise EmailNotFoundException("Email not found.")
             hashed_password_from_db = hashed_password_row[0]
@@ -131,8 +120,8 @@ class User(Base):
                 plaintext_password.encode('utf-8'),
                 hashed_password_from_db.encode('utf-8')
             ):
-                return session.execute(select(User.user_id)
-                                       .filter_by(email=email)).first()
+                return session.query(select(User.user_id).join(UserProfile)
+                                     .where(UserProfile.email == email)).first()[0]
             raise PasswordErrorException("Invalid Password")
         except (OperationalError, ValueError) as e:
             session.rollback()
@@ -142,6 +131,7 @@ class User(Base):
             raise err
         finally:
             session.close()
+    
     @classmethod
     def send_forgot_password_link(cls, email) -> str:
         """
@@ -165,8 +155,13 @@ class User(Base):
             message = (f"Click the link to reset your password: "
                        f"{cls.FRONT_END_FORGOT_PASSWORD_URL}{reset_token}"
                        f"\n\nThis link will expire in {token_expiry_minutes} minutes.")
-            session.execute(update(User).where(User.email == email)
-                            .values(reset_token=reset_token, reset_expiry=reset_expiry))
+            update_stmt = (
+                update(User)
+                .where(User.user_id == UserProfile.user_id)
+                .where(UserProfile.email == email)
+                .values(reset_token=reset_token, reset_expiry=reset_expiry)
+            )
+            session.execute(update_stmt)
             send_mail(email=user.email, message=message, subject=subject)
             session.commit()
             return 'reset_link_sent'
@@ -175,6 +170,7 @@ class User(Base):
             raise e
         finally:
             session.close()
+    
     @classmethod
     def verify_forgot_password_token(cls, reset_token, new_password) -> str:
         """
@@ -189,8 +185,13 @@ class User(Base):
             if user is None:
                 raise PasswordResetLinkInvalidException("Invalid reset token.")
             if user[1] < datetime.now():
-                session.execute(update(User).where(User.reset_token == reset_token)
-                                .values(reset_token=None, reset_expiry=None))
+                query = (
+                    update(User)
+                    .where(User.user_id == user[0])
+                    .where(UserProfile.user_id == user[0])
+                    .values(reset_token=None, reset_expiry=None)
+                )
+                session.execute(query)
                 session.commit()
                 raise PasswordResetExpiredException("Password reset link has expired.")
             return cls.password_reset(new_password, user[0])
@@ -200,7 +201,7 @@ class User(Base):
             raise e
         finally:
             session.close()
-
+    
     @classmethod
     def password_reset(cls, new_password, user_id):
         """
@@ -213,8 +214,12 @@ class User(Base):
             salt = bcrypt.gensalt(rounds=16).decode('utf=8')
             hashed_password = (bcrypt.hashpw(new_password.encode('utf-8'), salt.encode('utf-8'))
                                .decode('utf-8'))
-            session.execute(update(User).where(User.user_id == user_id)
-                            .values(salt=salt, hashed_password=hashed_password))
+            query = (
+                update(User)
+                .where(User.user_id == user_id)
+                .values(salt=salt, hashed_password=hashed_password)
+            )
+            session.execute(query)
             session.commit()
             return 'password_reset'
         except (OperationalError, ValueError) as e:
@@ -222,6 +227,7 @@ class User(Base):
             raise e
         finally:
             session.close()
+    
     @classmethod
     def generate_otp(cls, email) -> str:
         """
@@ -241,10 +247,15 @@ class User(Base):
                                          digits=7, interval=300, digest=hashlib.sha256).now()
             otp_expiry = datetime.now() + timedelta(minutes=5)
             subject = "Your OTP Verification code"
-            message =\
+            message = \
                 f"Here's your OTP Code: {seven_digit_otp}. Use this to get access to your account."
-            session.execute(update(User).where(User.email == email)
-                            .values(otp_secret=seven_digit_otp, otp_expiry=otp_expiry))
+            query = (
+                update(User)
+                .where(User.user_id == UserProfile.user_id)
+                .where(UserProfile.email == email)
+                .values(otp_secret=seven_digit_otp, otp_expiry=otp_expiry)
+            )
+            session.execute(query)
             send_mail(email=user.email, message=message, subject=subject)
             session.commit()
             return 'otp_sent'
@@ -253,6 +264,7 @@ class User(Base):
             raise e
         finally:
             session.close()
+    
     @classmethod
     def verify_otp(cls, email, otp) -> str:
         """Function responsible for verifying the OTP Code."""
@@ -263,23 +275,58 @@ class User(Base):
             user = cls.get_user_by_email(email)
             if user is None:
                 raise EmailNotFoundException("Email not found.")
-            user_otp = session.execute(select(User.otp_secret, User.otp_expiry)
-                                       .where(User.email == email)).first()
-            if user_otp[0] is None or user_otp[1] is None:
+            user_otp_query = session.execute(
+                select(User.otp_secret, User.otp_expiry)
+                .where(User.user_id == UserProfile.user_id)
+                .where(UserProfile.email == email)
+            ).first()
+            user_otp_secret, user_otp_expiry = user_otp_query
+            session.execute(user_otp_query).first()
+            if user_otp_secret is None or user_otp_expiry is None:
                 raise OTPExpiredException("OTP has expired.")
-            if user_otp[1] < datetime.now():
-                session.execute(update(User).where(User.email == email)
-                                .values(otp_secret=None, otp_expiry=None))
+            if user_otp_expiry < datetime.now():
+                query = (
+                    update(User)
+                    .where(User.user_id == UserProfile.user_id)
+                    .where(UserProfile.email == email)
+                    .values(otp_secret=None, otp_expiry=None)
+                )
+                session.execute(query)
                 session.commit()
                 raise OTPExpiredException("OTP has expired.")
-            if int(user_otp[0]) != int(otp):
+            if int(user_otp_query[0]) != int(otp):
                 raise OTPIncorrectException("Incorrect OTP.")
-            session.execute(update(User).where(User.email == email)
-                            .values(otp_secret=None, otp_expiry=None))
+            query = (
+                update(User)
+                .where(User.user_id == UserProfile.user_id)
+                .where(UserProfile.email == email)
+                .values(otp_secret=None, otp_expiry=None)
+            )
+            session.execute(query)
             session.commit()
             return 'otp_verified'
         except (OperationalError, ValueError, OTPExpiredException, OTPIncorrectException,
                 EmailNotFoundException) as e:
+            session.rollback()
+            raise e
+        finally:
+            session.close()
+    
+    @classmethod
+    def is_account_verified(cls, email) -> bool:
+        """
+        Function responsible for checking if the account is verified.
+        """
+        session = get_session()
+        try:
+            result = session.query(select(User.verified_account)
+                                   .where(User.user_id == UserProfile.user_id)
+                                   .where(UserProfile.email == email)).first()
+            is_verified = result
+            if is_verified:
+                return True
+            return False
+        except OperationalError as e:
             session.rollback()
             raise e
         finally:
