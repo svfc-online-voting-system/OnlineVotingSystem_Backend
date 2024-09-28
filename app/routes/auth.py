@@ -16,7 +16,8 @@ from app.exception.authorization_exception import (EmailNotFoundException, OTPEx
                                                    PasswordResetExpiredException,
                                                    PasswordResetLinkInvalidException,
                                                    EmailAlreadyTaken,
-                                                   PasswordErrorException)
+                                                   PasswordIncorrectException,
+                                                   AccountNotVerifiedException)
 from app.schemas.auth_forms_schema import SignUpSchema, LoginSchema
 from app.services.auth_service import AuthService
 
@@ -34,6 +35,17 @@ def handle_validation_error(error):
         return set_response(400, {
             'code': 'invalid_data',
             'message': error.messages
+        })
+    raise error
+
+
+def handle_account_not_verified_exception(error):
+    """ This function handles account not verified exceptions. """
+    if isinstance(error, AccountNotVerifiedException):
+        logger.error("Account not verified: %s", error)
+        return set_response(401, {
+            'code': 'account_not_verified',
+            'message': 'Account not verified.'
         })
     raise error
 
@@ -93,9 +105,9 @@ def handle_password_reset_link_invalid_exception(error):
     raise error
 
 
-def handle_password_error_exception(error):
+def handle_password_incorrect_exception(error):
     """ This function handles password errors. """
-    if isinstance(error, PasswordErrorException):
+    if isinstance(error, PasswordIncorrectException):
         logger.error("Password error: %s", error)
         return set_response(400, {
             'code': 'password_error',
@@ -150,7 +162,10 @@ auth_blueprint.register_error_handler(Exception, handle_database_errors)
 auth_blueprint.register_error_handler(ValueError, handle_value_error)
 auth_blueprint.register_error_handler(ValidationError, handle_validation_error)
 auth_blueprint.register_error_handler(EmailAlreadyTaken, handle_email_already_taken)
-auth_blueprint.register_error_handler(PasswordErrorException, handle_password_error_exception)
+auth_blueprint.register_error_handler(PasswordIncorrectException,
+                                      handle_password_incorrect_exception)
+auth_blueprint.register_error_handler(AccountNotVerifiedException,
+                                      handle_account_not_verified_exception)
 auth_blueprint.register_error_handler(EmailNotFoundException, handle_email_not_found)
 auth_blueprint.register_error_handler(OTPExpiredException, handle_otp_expired_exception)
 auth_blueprint.register_error_handler(OTPIncorrectException, handle_otp_incorrect_exception)
@@ -234,7 +249,7 @@ def login() -> Response:
             'message': 'Something went wrong on our end.'
         })
     if authentication_result == 'invalid_credentials':
-        raise PasswordErrorException('Invalid credentials')
+        raise PasswordIncorrectException('Invalid credentials')
     return set_response(200, {
         'code': 'success',
         'message': "OTP has been sent to your email."
@@ -250,7 +265,7 @@ def logout() -> Response:
     return response
 
 
-@auth_blueprint.route('/auth/verify-jwt-identity', methods=['GET'])
+@auth_blueprint.route(rule='/auth/verify-jwt-identity', methods=['GET'])
 def verify_jwt_identity() -> Response:
     """ This is the route for verifying the JWT identity. """
     try:
@@ -280,7 +295,7 @@ def verify_token_reset_password():
     if not token or not new_password:
         raise ValueError('Invalid data format')
     if len(new_password) < 8:
-        raise PasswordErrorException('Password must be at least 8 characters.')
+        raise PasswordIncorrectException('Password must be at least 8 characters.')
     auth_service_token = AuthService()
     if auth_service_token.verify_forgot_password_token(token, new_password):
         return set_response(200, {
@@ -342,6 +357,46 @@ def generate_otp() -> Response:
         return set_response(200, {
             'code': 'success',
             'message': 'OTP Generated'
+        })
+    return set_response(401, {
+        'code': 'unauthorized',
+        'message': 'Unauthorized access.'
+    })
+
+@auth_blueprint.route(rule='/auth/verify-email', methods=['GET'])
+def verify_email() -> Response:
+    """ Function for handling email verification.
+    https://domain.com/auth/verify-email?email=someone@example.com&token=sometoken
+    """
+    email = request.args.get('email')
+    token = request.args.get('token')
+    if not email or not token:
+        return set_response(400, {
+            'code': 'invalid_request',
+            'message': 'Bad Request: Missing email or token.'
+        })
+    auth_service_verify_email = AuthService()
+    if auth_service_verify_email.verify_email(email, token):
+        return set_response(200, {
+            'code': 'success',
+            'message': 'Email Verified'
+        })
+    return set_response(401, {
+        'code': 'unauthorized',
+        'message': 'Unauthorized access.'
+    })
+
+@auth_blueprint.route(rule='/auth/resend-verification-email', methods=['POST'])
+def resend_verification_email() -> Response:
+    """ Function for handling email verification."""
+    email = request.json.get('email')
+    if not email:
+        raise ValueError('Invalid data format')
+    auth_service_resend_verification_email = AuthService()
+    if auth_service_resend_verification_email.resend_email_verification(email):
+        return set_response(200, {
+            'code': 'success',
+            'message': 'Email Verification Sent'
         })
     return set_response(401, {
         'code': 'unauthorized',

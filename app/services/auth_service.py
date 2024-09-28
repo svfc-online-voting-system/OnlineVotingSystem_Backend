@@ -18,7 +18,8 @@ from app.exception.authorization_exception import (EmailAlreadyTaken, EmailNotFo
                                                    OTPIncorrectException,
                                                    PasswordResetExpiredException,
                                                    PasswordResetLinkInvalidException,
-                                                   AccountNotVerifiedException)
+                                                   AccountNotVerifiedException,
+                                                   PasswordIncorrectException)
 from app.models.user_profile import UserProfile
 from app.models.users import User
 
@@ -27,7 +28,8 @@ logger = logging.getLogger(__name__)
 
 class AuthService:
     """ This class is responsible for the authentication of the user. """
-    def register(self, user_data):
+    @classmethod
+    def register(cls, user_data):
         """
             This is the function responsible for checking necessary
             constrain on the database if the current data in question passed
@@ -62,27 +64,31 @@ class AuthService:
             raise e
         except (IntegrityError, DataError, DatabaseError, OperationalError) as ex:
             raise ex
-    @staticmethod
-    def login(email, plaintext_password) -> str:
+    @classmethod
+    def login(cls, email, plaintext_password):
         """
         This is for the login functionality. It checks first if the email
         found on the database, throws EmailNotFound if not found, otherwise
         proceed for checking the credentials.
         """
         try:
-            if not User.get_user_by_email(email):
-                raise EmailNotFoundException('Email not found.')
-            if not User.is_account_verified(email):
+            user_data = User.login(email)
+            user_email = user_data.get('email')
+            user_password = user_data.get('password')
+            user_salt = user_data.get('salt')
+            is_verified = User.is_email_verified(email)
+            if not is_verified:
                 raise AccountNotVerifiedException('Account not verified.')
-            user_id = User.check_credentials(email, plaintext_password)
-            if user_id:
-                logger.info(
-                    "The user with email %s: successfully logged in at %s",
-                    email, datetime.now()
-                )
-                return User.generate_otp(email)
-            return 'invalid_credentials'
+            if user_email is None and user_password is None and user_salt is None:
+                raise EmailNotFoundException('Email not found.')
+            is_password_matched = bcrypt.checkpw(plaintext_password.encode('utf-8'),
+                                                 user_password.encode('utf-8'))
+            if not is_password_matched:
+                raise PasswordIncorrectException('Password incorrect.')
+            # Generate OTP and return a success message
+            return User.generate_otp(email)
         except (OperationalError, ValueError,
+                PasswordIncorrectException,
                 EmailNotFoundException,
                 AccountNotVerifiedException) as e:
             raise e
@@ -90,7 +96,6 @@ class AuthService:
     def generate_session_token(email):
         """Generate a session token during call as payload."""
         return create_access_token(identity=email)
-
     @staticmethod
     @jwt_required(locations=['cookies', 'headers'])
     def verify_token():
@@ -105,12 +110,19 @@ class AuthService:
     def generate_otp(email):
         """This is the function responsible for generating the OTP."""
         try:
+            if not email:
+                raise ValueError("Email is required.")
             return User.generate_otp(email=email)
         except (OperationalError, ValueError, EmailNotFoundException) as e:
             raise e
     def verify_otp(self, email, otp):
         """This is the function responsible for verifying the OTP """
         try:
+            if not email or not otp:
+                raise ValueError("Email and OTP are required.")
+            is_user_exists = UserProfile.email_exists(email)
+            if not is_user_exists:
+                raise EmailNotFoundException('Email not found.')
             if User.verify_otp(email=email, otp=otp):
                 return self.generate_session_token(email)
             return None
@@ -121,14 +133,39 @@ class AuthService:
     def send_forgot_password_link(email):
         """This is the function responsible for the forgot password."""
         try:
+            if not email:
+                raise ValueError("Email is required.")
+            is_user_exists = UserProfile.email_exists(email)
+            if not is_user_exists:
+                raise EmailNotFoundException('Email not found.')
             return User.send_forgot_password_link(email)
         except (EmailNotFoundException, ValueError, OperationalError) as e:
             raise e
     @staticmethod
-    def verify_forgot_password_token(toke, new_password):
+    def verify_forgot_password_token(token, new_password):
         """This is the function responsible for verifying the forgot password token."""
         try:
-            return User.verify_forgot_password_token(toke, new_password)
+            if not token or not new_password:
+                raise ValueError("Token and new password is required.")
+            return User.verify_forgot_password_token(token, new_password)
         except (PasswordResetExpiredException, PasswordResetLinkInvalidException,
                 ValueError, DataError, OperationalError) as e:
+            raise e
+    @staticmethod
+    def verify_email(email, token):
+        """This is the function responsible for verifying the email."""
+        try:
+            if not email or not token:
+                raise ValueError("Email and token are required.")
+            return User.verify_email(email, token)
+        except (ValueError, DataError, OperationalError) as e:
+            raise e
+    @staticmethod
+    def resend_email_verification(email):
+        """This is the function responsible for resending the email verification."""
+        try:
+            if not email:
+                raise ValueError("Email is required.")
+            return User.resend_email_verification(email)
+        except (ValueError, EmailNotFoundException, DataError, OperationalError) as e:
             raise e
