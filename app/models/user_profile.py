@@ -74,7 +74,7 @@ class UserProfile(Base):
             result = session.execute(stmt).first()
             if result:
                 return True
-            return False
+            return False  # pylint: disable=R0801
         except (DataError, IntegrityError, OperationalError, DatabaseError) as e:
             session.rollback()
             raise e
