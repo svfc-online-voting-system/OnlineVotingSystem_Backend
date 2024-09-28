@@ -58,8 +58,8 @@ class UserProfile(Base):
                         f"{email_verification_token}",
                 subject="Verify Your Email"
             )
-            return 'success'  # pylint: disable=R0801
-        except (DataError, IntegrityError, OperationalError, DatabaseError) as e:
+            return 'success'
+        except (DataError, IntegrityError, OperationalError, DatabaseError) as e:  # pylint: disable=R0801
             session.rollback()
             raise e
         finally:
