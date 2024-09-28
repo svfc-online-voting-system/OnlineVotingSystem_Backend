@@ -83,7 +83,7 @@ class User(Base):
             )
             session.add(new_user)
             session.commit()
-            return new_user.user_id
+            return new_user.user_id  # pylint: disable=R0801
         except (DataError, IntegrityError, OperationalError, DatabaseError) as e:
             session.rollback()
             raise e
