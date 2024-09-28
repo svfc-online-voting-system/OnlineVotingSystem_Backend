@@ -73,6 +73,7 @@ class User(Base):
     def create_new_user(cls, user_data: dict):
         """Create a new user in the database."""
         session = get_session()
+        # pylint: disable=R0801
         try:
             new_user = cls(
                 salt=user_data.get("salt"),
@@ -84,7 +85,7 @@ class User(Base):
             session.add(new_user)
             session.commit()
             return new_user.user_id
-        except (DataError, IntegrityError, OperationalError, DatabaseError) as e:  # pylint: disable=R0801
+        except (DataError, IntegrityError, OperationalError, DatabaseError) as e:
             session.rollback()
             raise e
         finally:

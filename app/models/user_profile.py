@@ -30,6 +30,7 @@ class UserProfile(Base):
     def add_new_profile_data(cls, profile_data: dict):
         """Add new profile data to the database."""
         session = get_session()
+        # pylint: disable=R0801
         try:
             user_id = profile_data.get('user_id')
             username = profile_data.get('username')
@@ -59,7 +60,7 @@ class UserProfile(Base):
                 subject="Verify Your Email"
             )
             return 'success'
-        except (DataError, IntegrityError, OperationalError, DatabaseError) as e:  # pylint: disable=R0801
+        except (DataError, IntegrityError, OperationalError, DatabaseError) as e:
             session.rollback()
             raise e
         finally:
