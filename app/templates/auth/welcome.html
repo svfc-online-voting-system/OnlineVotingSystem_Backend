@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Welcome to Votevoyage</title>
+    <title>Vote Voyage Onboarding 🎉</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet">
@@ -53,12 +53,12 @@
 <body>
     <main>
         <h1>Welcome to Votevoyage</h1>
-        <p>Hi {{ $user->name }},</p>
+        <p>Hi {{ user_name }},</p>
         <p>Thank you for signing up to Votevoyage. We are excited to have you on board. To get started you need to verify your email</p>
         <p>Votevoyage is a platform that allows you to create and participate in polls. You can create a poll and share it with your friends, family, and colleagues. You can also participate in polls created by other users.</p>
-        <button><a style="color: white; font-weight: bold" target="_blank" href="{{ $verificationUrl }}">Verify Email</a></button>
+        <button><a style="color: white; font-weight: bold" target="_blank" href="{{ verification_url }}">Verify Email</a></button>
         <p>Or if the button above doesn't work copy the link below:</p>
-        <p>{{ $verificationUrl }}</p>
+        <p>{{ verification_url }}</p>
         <p>Thank you for joining us. We hope you enjoy using Votevoyage.</p>
         <p>Best regards,</p>
         <p style="font-weight: bold">The Votevoyage Team</p>

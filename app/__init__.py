@@ -22,7 +22,7 @@ from app.routes.auth import auth_blueprint
 
 def create_app():
     """Factory function to create the Flask app instance."""
-    app = Flask(__name__)
+    app = Flask(__name__, template_folder='templates')
     app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY', 'default-secret-key')
     app.config['JWT_ACCESS_COOKIE_NAME'] = 'Authorization'
     JWTManager(app)

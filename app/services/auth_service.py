@@ -8,6 +8,7 @@ import os
 from datetime import datetime
 import base64
 import logging
+from flask import render_template
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
 import bcrypt
 from jwt import ExpiredSignatureError, InvalidTokenError
@@ -22,6 +23,7 @@ from app.exception.authorization_exception import (EmailAlreadyTaken, EmailNotFo
                                                    PasswordIncorrectException)
 from app.models.user_profile import UserProfile
 from app.models.users import User
+from app.utils.email_utility import send_mail
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +61,11 @@ class AuthService:
             user_id = User.create_new_user(user_auth_data)
             user_profile_data['user_id'] = user_id
             UserProfile.add_new_profile_data(user_profile_data)
+            message = render_template("auth/welcome.html",
+                                      verification_url=f"{UserProfile.FRONT_END_VERIFY_EMAIL_URL}"
+                                                       f"{email_verification_token}",
+                                      user_name=user_data.get('first_name').capitalize())
+            send_mail(message=message, email=user_data.get('email'), subject="VoteVoyage Onboarding 🎉")
             return 'success'
         except EmailAlreadyTaken as e:
             raise e
