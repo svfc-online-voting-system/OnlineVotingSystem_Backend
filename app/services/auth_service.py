@@ -40,7 +40,8 @@ class AuthService:
             salt = bcrypt.gensalt(rounds=16).decode('utf=8')
             hashed_password = bcrypt.hashpw(user_data.get('password').encode(
                 'utf-8'), salt.encode('utf-8')).decode('utf-8')
-            email_verification_token = base64.b64encode(os.urandom(128)).decode('utf-8')
+            email_verification_token = (base64.urlsafe_b64encode(os.urandom(128))
+                                        .decode('utf-8').rstrip('='))
             is_email_exists = UserProfile.email_exists(user_data.get('email'))
             user_auth_data = {
                 'salt': salt,

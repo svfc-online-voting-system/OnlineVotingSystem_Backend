@@ -24,7 +24,7 @@ class UserProfile(Base):
     date_of_birth = Column(Date, nullable=False)
     account_creation_date = Column(Date, nullable=False)
     user = relationship("User", back_populates="profile")
-    FRONT_END_VERIFY_EMAIL_URL = os.getenv('LOCAL_FRONTEND_URL') + 'auth/verify-email/'
+    FRONT_END_VERIFY_EMAIL_URL = os.getenv('LOCAL_FRONTEND_URL') + '/auth/verify-email/'
     @classmethod
     def add_new_profile_data(cls, profile_data: dict):
         """Add new profile data to the database."""
