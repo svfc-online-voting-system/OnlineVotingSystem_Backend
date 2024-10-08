@@ -363,21 +363,23 @@ def generate_otp() -> Response:
         'message': 'Unauthorized access.'
     })
 
-@auth_blueprint.route(rule='/auth/verify-email', methods=['GET'])
-def verify_email() -> Response:
+@auth_blueprint.route('/auth/verify-email/<string:token>', methods=['GET'])
+def verify_email(token: str) -> Response:
     """ Function for handling email verification.
     """
-    token = request.args.get('token')
-    if len(token) != 172:
+    # Ensure the token is the expected length
+    if len(token) != 171:
         return set_response(400, {
             'code': 'invalid_request',
             'message': 'Bad Request: Invalid token.'
         })
+    # Ensure the token is not empty
     if not token:
         return set_response(400, {
             'code': 'invalid_request',
             'message': 'Bad Request: Missing token.'
         })
+    # Call the AuthService to verify the email
     auth_service_verify_email = AuthService()
     if auth_service_verify_email.verify_email(token):
         return set_response(200, {
