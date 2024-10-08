@@ -7,6 +7,6 @@ def send_mail(email: str, message: str, subject: str):
     msg = Message(
         subject=subject,
         recipients=[email],
-        body=message
     )
+    msg.html = message
     mail.send(msg)

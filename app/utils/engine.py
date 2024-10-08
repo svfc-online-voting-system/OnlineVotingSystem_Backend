@@ -20,7 +20,7 @@ logger.addHandler(console_handler)
 
 DATABASE_URL = (
     f"{os.getenv('DATABASE_BASE_URL')}"
-    f"{os.getenv('DATABASE_USER')}:"
+    f"{os.getenv('DATABASE_USERNAME')}:"
     f"{os.getenv('DATABASE_PASSWORD')}@"
     f"{os.getenv('DATABASE_HOSTNAME')}:"
     f"{os.getenv('DATABASE_PORT')}/"
