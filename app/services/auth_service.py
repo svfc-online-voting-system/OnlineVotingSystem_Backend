@@ -65,7 +65,9 @@ class AuthService:
                                       verification_url=f"{UserProfile.FRONT_END_VERIFY_EMAIL_URL}"
                                                        f"{email_verification_token}",
                                       user_name=user_data.get('first_name').capitalize())
-            send_mail(message=message, email=user_data.get('email'), subject="VoteVoyage Onboarding 🎉")
+            send_mail(message=message,
+                      email=user_data.get('email'),
+                      subject="VoteVoyage Onboarding 🎉")
             return 'success'
         except EmailAlreadyTaken as e:
             raise e
@@ -159,12 +161,12 @@ class AuthService:
                 ValueError, DataError, OperationalError) as e:
             raise e
     @staticmethod
-    def verify_email(email, token):
+    def verify_email(token):
         """This is the function responsible for verifying the email."""
         try:
-            if not email or not token:
+            if not token:
                 raise ValueError("Email and token are required.")
-            return User.verify_email(email, token)
+            return User.verify_email(token)
         except (ValueError, DataError, OperationalError) as e:
             raise e
     @staticmethod

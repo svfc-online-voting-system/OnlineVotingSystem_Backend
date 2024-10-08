@@ -9,7 +9,6 @@ from sqlalchemy.exc import IntegrityError, DataError, OperationalError, Database
 from sqlalchemy import select, insert
 
 from app.models.base import Base
-from app.utils.email_utility import send_mail
 from app.utils.engine import get_session
 
 class UserProfile(Base):
@@ -25,7 +24,7 @@ class UserProfile(Base):
     date_of_birth = Column(Date, nullable=False)
     account_creation_date = Column(Date, nullable=False)
     user = relationship("User", back_populates="profile")
-    FRONT_END_VERIFY_EMAIL_URL = os.getenv('LOCAL_FRONTEND_URL') + '/verify-email/'
+    FRONT_END_VERIFY_EMAIL_URL = os.getenv('LOCAL_FRONTEND_URL') + 'auth/verify-email/'
     @classmethod
     def add_new_profile_data(cls, profile_data: dict):
         """Add new profile data to the database."""
@@ -39,7 +38,6 @@ class UserProfile(Base):
             last_name = profile_data.get('last_name')
             date_of_birth = profile_data.get('date_of_birth')
             account_creation_date = profile_data.get('account_creation_date')
-            email_verification_token = profile_data.get('email_verification_token')
             query = (
                 insert(cls).values(
                     user_id=user_id,
@@ -53,12 +51,6 @@ class UserProfile(Base):
             )
             session.execute(query)
             session.commit()
-            send_mail(
-                email=email,
-                message=f"Click the link to verify your email: {cls.FRONT_END_VERIFY_EMAIL_URL}"
-                        f"{email_verification_token}",
-                subject="Verify Your Email"
-            )
             return 'success'
         except (DataError, IntegrityError, OperationalError, DatabaseError) as e:
             session.rollback()

@@ -366,17 +366,20 @@ def generate_otp() -> Response:
 @auth_blueprint.route(rule='/auth/verify-email', methods=['GET'])
 def verify_email() -> Response:
     """ Function for handling email verification.
-    https://domain.com/auth/verify-email?email=someone@example.com&token=sometoken
     """
-    email = request.args.get('email')
     token = request.args.get('token')
-    if not email or not token:
+    if len(token) != 172:
         return set_response(400, {
             'code': 'invalid_request',
-            'message': 'Bad Request: Missing email or token.'
+            'message': 'Bad Request: Invalid token.'
+        })
+    if not token:
+        return set_response(400, {
+            'code': 'invalid_request',
+            'message': 'Bad Request: Missing token.'
         })
     auth_service_verify_email = AuthService()
-    if auth_service_verify_email.verify_email(email, token):
+    if auth_service_verify_email.verify_email(token):
         return set_response(200, {
             'code': 'success',
             'message': 'Email Verified'

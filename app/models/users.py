@@ -35,11 +35,11 @@ import time
 import bcrypt
 import pyotp
 
-from sqlalchemy import Column, Integer, String, Date, select, update, Boolean, func
+from sqlalchemy import Column, Integer, String, Date, select, update, Boolean
 from sqlalchemy.orm import relationship, joinedload
 from sqlalchemy.exc import IntegrityError, DataError, OperationalError, DatabaseError
 from sqlalchemy.sql import expression
-from sqlalchemy.sql.operators import and_, or_
+from sqlalchemy.sql.operators import or_
 
 from app.models.user_profile import UserProfile
 from app.utils.email_utility import send_mail
@@ -272,18 +272,15 @@ class User(Base):
         finally:
             session.close()
     @classmethod
-    def verify_email(cls, email, token):
+    def verify_email(cls, token):
         """ Function responsible for verifying the email."""
         session = get_session()
         try:
             cleaned_token = urllib.parse.unquote(token).replace(" ", "+")
             user = session.query(cls).options(joinedload(cls.profile)).join(UserProfile).filter(
-                and_(
-                    func.lower(UserProfile.email) == func.lower(email),
-                    or_(
-                        cls.verification_token == cleaned_token,
-                        cls.verification_token == token
-                    )
+                or_(
+                    cls.verification_token == cleaned_token,
+                    cls.verification_token == token
                 )
             ).first()
             if user is None:
@@ -291,6 +288,7 @@ class User(Base):
             if user.verification_expiry < datetime.now():
                 user.verification_token = None
                 user.verification_expiry = None
+                email = user.profile.email
                 session.commit()
                 cls.resend_email_verification(email)
                 raise ValueError("Token expired. A new verification link has been sent.")
