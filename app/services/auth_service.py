@@ -4,13 +4,13 @@
     Furthermore, it is also responsible for generating the session token.
     Additionally, it is also responsible for handling the exceptions
 """
-import os
+from os import urandom
 from datetime import datetime
-import base64
-import logging
+from base64 import urlsafe_b64encode
+from logging import getLogger
 from flask import render_template
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
-import bcrypt
+from bcrypt import hashpw, gensalt, checkpw
 from jwt import ExpiredSignatureError, InvalidTokenError
 from sqlalchemy.exc import DataError, IntegrityError, DatabaseError, OperationalError
 
@@ -25,7 +25,7 @@ from app.models.user_profile import UserProfile
 from app.models.users import User
 from app.utils.email_utility import send_mail
 
-logger = logging.getLogger(__name__)
+logger = getLogger(__name__)
 
 
 class AuthService:
@@ -37,10 +37,10 @@ class AuthService:
             constrain on the database if the current data in question passed
         """
         try:
-            salt = bcrypt.gensalt(rounds=16).decode('utf=8')
-            hashed_password = bcrypt.hashpw(user_data.get('password').encode(
+            salt = gensalt(rounds=16).decode('utf=8')
+            hashed_password = hashpw(user_data.get('password').encode(
                 'utf-8'), salt.encode('utf-8')).decode('utf-8')
-            email_verification_token = (base64.urlsafe_b64encode(os.urandom(128))
+            email_verification_token = (urlsafe_b64encode(urandom(128))
                                         .decode('utf-8').rstrip('='))
             is_email_exists = UserProfile.email_exists(user_data.get('email'))
             user_auth_data = {
@@ -91,7 +91,7 @@ class AuthService:
                 raise AccountNotVerifiedException('Account not verified.')
             if user_email is None and user_password is None and user_salt is None:
                 raise EmailNotFoundException('Email not found.')
-            is_password_matched = bcrypt.checkpw(plaintext_password.encode('utf-8'),
+            is_password_matched = checkpw(plaintext_password.encode('utf-8'),
                                                  user_password.encode('utf-8'))
             if not is_password_matched:
                 raise PasswordIncorrectException('Password incorrect.')
@@ -103,9 +103,9 @@ class AuthService:
                 AccountNotVerifiedException) as e:
             raise e
     @staticmethod
-    def generate_session_token(email):
+    def generate_session_token(email, user_id):
         """Generate a session token during call as payload."""
-        return create_access_token(identity=email)
+        return create_access_token(identity={'email': email, 'user_id': user_id})
     @staticmethod
     @jwt_required(locations=['cookies', 'headers'])
     def verify_token():
@@ -133,8 +133,9 @@ class AuthService:
             is_user_exists = UserProfile.email_exists(email)
             if not is_user_exists:
                 raise EmailNotFoundException('Email not found.')
-            if User.verify_otp(email=email, otp=otp):
-                return self.generate_session_token(email)
+            user_id = User.verify_otp(email=email, otp=otp)
+            if user_id:
+                return self.generate_session_token(email, user_id)
             return None
         except (OperationalError, ValueError, OTPExpiredException, OTPIncorrectException,
                 EmailNotFoundException) as e:

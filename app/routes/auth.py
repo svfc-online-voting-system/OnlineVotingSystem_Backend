@@ -1,15 +1,10 @@
 """
         This module contains the routes for the authentication of users.
 """
-import logging
-from datetime import datetime, timedelta
-import os
-from sqlite3 import IntegrityError, DatabaseError
-
-from flask import Blueprint, request, Response, make_response, json, jsonify
+from logging import getLogger
+from flask import Blueprint, request, Response, make_response
 from jwt import ExpiredSignatureError, InvalidTokenError
 from marshmallow import ValidationError
-from sqlalchemy.exc import DataError, OperationalError
 
 from app.exception.authorization_exception import (EmailNotFoundException, OTPExpiredException,
                                                    OTPIncorrectException,
@@ -20,142 +15,12 @@ from app.exception.authorization_exception import (EmailNotFoundException, OTPEx
                                                    AccountNotVerifiedException)
 from app.schemas.auth_forms_schema import SignUpSchema, LoginSchema
 from app.services.auth_service import AuthService
+from app.utils.error_handlers import handle_account_not_verified_exception, handle_general_exception, handle_password_incorrect_exception, handle_otp_incorrect_exception, handle_otp_expired_exception, handle_email_not_found, handle_password_reset_expired_exception, handle_password_reset_link_invalid_exception, handle_email_already_taken, handle_value_error, handle_database_errors, handle_validation_error
+from app.utils.response_utils import set_response
 
-logger = logging.getLogger(name=__name__)
+logger = getLogger(name=__name__)
 auth_blueprint = Blueprint('auth', __name__)
 auth_service = AuthService()
-ENVIRONMENT = os.getenv('ENVIRONMENT', 'development')
-is_production = ENVIRONMENT == 'production'
-
-
-def handle_validation_error(error):
-    """ This function handles validation errors. """
-    if isinstance(error, ValidationError):
-        logger.error("Validation error: %s", error)
-        return set_response(400, {
-            'code': 'invalid_data',
-            'message': error.messages
-        })
-    raise error
-
-
-def handle_account_not_verified_exception(error):
-    """ This function handles account not verified exceptions. """
-    if isinstance(error, AccountNotVerifiedException):
-        logger.error("Account not verified: %s", error)
-        return set_response(401, {
-            'code': 'account_not_verified',
-            'message': 'Account not verified.'
-        })
-    raise error
-
-
-def handle_email_not_found(error):
-    """ This function handles email not found exceptions. """
-    if isinstance(error, EmailNotFoundException):
-        logger.error("Email not found: %s", error)
-        return set_response(404, {
-            'code': 'email_not_found',
-            'message': 'Email not found.'
-        })
-    raise error
-
-
-def handle_otp_expired_exception(error):
-    """ This function handles OTP expired exceptions. """
-    if isinstance(error, OTPExpiredException):
-        logger.error("OTP expired: %s", error)
-        return set_response(400, {
-            'code': 'otp_expired',
-            'message': 'OTP has expired.'
-        })
-    raise error
-
-
-def handle_otp_incorrect_exception(error):
-    """ This function handles OTP incorrect exceptions. """
-    if isinstance(error, OTPIncorrectException):
-        logger.error("OTP incorrect: %s", error)
-        return set_response(400, {
-            'code': 'otp_incorrect',
-            'message': 'OTP is incorrect.'
-        })
-    raise error
-
-
-def handle_password_reset_expired_exception(error):
-    """ This function handles password reset expired exceptions. """
-    if isinstance(error, PasswordResetExpiredException):
-        logger.error("Password reset expired: %s", error)
-        return set_response(400, {
-            'code': 'password_reset_expired',
-            'message': 'Password reset link has expired.'
-        })
-    raise error
-
-
-def handle_password_reset_link_invalid_exception(error):
-    """ This function handles password reset link invalid exceptions. """
-    if isinstance(error, PasswordResetLinkInvalidException):
-        logger.error("Password reset link invalid: %s", error)
-        return set_response(400, {
-            'code': 'password_reset_link_invalid',
-            'message': 'Password reset link is invalid.'
-        })
-    raise error
-
-
-def handle_password_incorrect_exception(error):
-    """ This function handles password errors. """
-    if isinstance(error, PasswordIncorrectException):
-        logger.error("Password error: %s", error)
-        return set_response(400, {
-            'code': 'password_error',
-            'message': 'Invalid credentials.'
-        })
-    raise error
-
-
-def handle_value_error(error):
-    """ This function handles value errors. """
-    if isinstance(error, ValueError):
-        logger.error("Value error: %s", error)
-        return set_response(400, {
-            'code': 'invalid_data',
-            'message': 'Invalid data format.'
-        })
-    raise error
-
-
-def handle_email_already_taken(error):
-    """ This function handles email already taken errors. """
-    if isinstance(error, EmailAlreadyTaken):
-        logger.error("Email already taken: %s", error)
-        return set_response(400, {
-            'code': 'email_already_taken',
-            'message': 'Email already taken.'
-        })
-    raise error
-
-
-def handle_database_errors(error):
-    """ This function handles database errors. """
-    if isinstance(error, (IntegrityError, DataError, DatabaseError, OperationalError)):
-        logger.error("Database error: %s", error)
-        return set_response(500, {
-            'code': 'server_error',
-            'message': 'A database error occurred. Please try again later.'
-        })
-    raise error
-
-
-def handle_general_exception(error):
-    """ This function handles general exceptions. """
-    logger.error("General exception: %s", error)
-    return set_response(500, {
-        'code': 'unexpected_error',
-        'message': 'An unexpected error occurred. Please try again later.'
-    })
 
 
 auth_blueprint.register_error_handler(Exception, handle_database_errors)
@@ -174,35 +39,6 @@ auth_blueprint.register_error_handler(PasswordResetExpiredException,
 auth_blueprint.register_error_handler(PasswordResetLinkInvalidException,
                                       handle_password_reset_link_invalid_exception)
 auth_blueprint.register_error_handler(Exception, handle_general_exception)
-
-
-def set_response(status_code, messages, **kwargs):
-    """ This function sets the response for the routes. """
-    response = make_response(jsonify(messages), status_code)
-    response.headers['Content-Type'] = 'application/json'
-    response.headers['Date'] = f"{datetime.now()}"
-    origin = 'https://localhost:4200' if not is_production else \
-        'https://online-voting-system.web.app'
-    response.headers['Access-Control-Allow-Origin'] = origin
-    response.headers['Access-Control-Allow-Credentials'] = 'true'
-    response.headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS, GET, DELETE, PUT'
-    response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
-    if 'authorization_token' in kwargs:
-        expires = datetime.now() + timedelta(days=365)
-        response.set_cookie(
-            key='Authorization',
-            value=kwargs['authorization_token'],
-            httponly=True,
-            secure=True,
-            samesite='None',
-            expires=expires,
-            path='/'
-        )
-    response_data = json.dumps(messages)
-    response.data = response_data
-    response.status_code = status_code
-    response.headers["Content-Length"] = str(len(response_data))
-    return response
 
 
 @auth_blueprint.route(rule='/auth/create-account', methods=['POST'])
@@ -367,19 +203,16 @@ def generate_otp() -> Response:
 def verify_email(token: str) -> Response:
     """ Function for handling email verification.
     """
-    # Ensure the token is the expected length
     if len(token) != 171:
         return set_response(400, {
             'code': 'invalid_request',
             'message': 'Bad Request: Invalid token.'
         })
-    # Ensure the token is not empty
     if not token:
         return set_response(400, {
             'code': 'invalid_request',
             'message': 'Bad Request: Missing token.'
         })
-    # Call the AuthService to verify the email
     auth_service_verify_email = AuthService()
     if auth_service_verify_email.verify_email(token):
         return set_response(200, {

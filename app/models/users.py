@@ -25,15 +25,16 @@
     Returns:
             user: User
 """
-import base64
-import hashlib
-import urllib.parse
+from base64 import b64encode, b32encode
+from hashlib import sha256
+from urllib.parse import unquote
 from datetime import datetime, timedelta
-import os
-import time
+from os import getenv, urandom
+from time import time
 
-import bcrypt
-import pyotp
+from bcrypt import gensalt
+from bcrypt import hashpw
+from pyotp import TOTP
 
 from sqlalchemy import Column, Integer, String, Date, select, update, Boolean
 from sqlalchemy.orm import relationship, joinedload
@@ -61,13 +62,15 @@ class User(Base):
     otp_expiry = Column(Date, nullable=True)
     reset_token = Column(String(175), nullable=True)
     reset_expiry = Column(Date, nullable=True)
-    verified_account = Column(Boolean, default=expression.false(), nullable=False)
+    verified_account = Column(
+        Boolean, default=expression.false(), nullable=False)
     verification_token = Column(String(175), nullable=True)
     verification_expiry = Column(Date, nullable=True)
     profile = relationship("UserProfile",
                            back_populates="user",
                            uselist=False, cascade="all, delete-orphan")
-    FRONT_END_FORGOT_PASSWORD_URL = os.getenv('LOCAL_FRONTEND_URL') + '/reset-password/'
+    FRONT_END_FORGOT_PASSWORD_URL = getenv(
+        'LOCAL_FRONTEND_URL') + '/reset-password/'
 
     @classmethod
     def create_new_user(cls, user_data: dict):
@@ -90,14 +93,15 @@ class User(Base):
             raise e
         finally:
             session.close()
+
     @classmethod
     def login(cls, email):
         """Login a user."""
         session = get_session()
         try:
             user_with_profile = (session.query(cls)
-                                 .options(joinedload(cls.profile))
-                                 .join(UserProfile).filter(
+                                .options(joinedload(cls.profile))
+                                .join(UserProfile).filter(
                 UserProfile.email == email
             ).first())
             if user_with_profile:
@@ -115,6 +119,7 @@ class User(Base):
             raise e
         finally:
             session.close()
+
     @classmethod
     def generate_otp(cls, email) -> str:
         """
@@ -123,14 +128,15 @@ class User(Base):
         """
         session = get_session()
         try:
-            seed = f"{os.getenv('TOTP_SECRET_KEY')}{int(time.time())}"
-            seven_digit_otp = pyotp.TOTP(base64.b32encode(bytes.fromhex(seed))
-                                         .decode('UTF-8'),
-                                         digits=7, interval=300, digest=hashlib.sha256).now()
-            otp_expiry = datetime.now() + timedelta(minutes=5)
+            seed = f"{getenv('TOTP_SECRET_KEY')}{int(time())}"
+            seven_digit_otp = TOTP(b32encode(bytes.fromhex(seed))
+                                        .decode('UTF-8'),
+                                        digits=7, interval=300, digest=sha256).now()
+            otp_expiry: datetime = datetime.now() + timedelta(minutes=5)
             subject = "Your OTP Verification code"
             message = \
-                f"Here's your OTP Code: {seven_digit_otp}. Use this to get access to your account."
+                f"Here's your OTP Code: {
+                    seven_digit_otp}. Use this to get access to your account."
             query = (
                 update(User)
                 .where(User.user_id == UserProfile.user_id)
@@ -146,6 +152,7 @@ class User(Base):
             raise e
         finally:
             session.close()
+
     @classmethod
     def is_email_verified(cls, email):
         """Check if an email is verified."""
@@ -160,6 +167,7 @@ class User(Base):
             raise e
         finally:
             session.close()
+
     @classmethod
     def verify_forgot_password_token(cls, reset_token, new_password) -> str:
         """
@@ -180,7 +188,8 @@ class User(Base):
                 )
                 session.execute(query)
                 session.commit()
-                raise PasswordResetExpiredException("Password reset link has expired.")
+                raise PasswordResetExpiredException(
+                    "Password reset link has expired.")
             return cls.password_reset(new_password, user[0])
         except (PasswordResetExpiredException, PasswordResetLinkInvalidException,
                 DataError, OperationalError) as e:
@@ -188,6 +197,7 @@ class User(Base):
             raise e
         finally:
             session.close()
+
     @classmethod
     def password_reset(cls, new_password, user_id):
         """
@@ -195,8 +205,8 @@ class User(Base):
         """
         session = get_session()
         try:
-            salt = bcrypt.gensalt(rounds=16).decode('utf=8')
-            hashed_password = (bcrypt.hashpw(new_password.encode('utf-8'), salt.encode('utf-8'))
+            salt = gensalt(rounds=16).decode('utf=8')
+            hashed_password = (hashpw(new_password.encode('utf-8'), salt.encode('utf-8'))
                                .decode('utf-8'))
             query = (
                 update(User)
@@ -211,18 +221,19 @@ class User(Base):
             raise e
         finally:
             session.close()
+
     @classmethod
-    def verify_otp(cls, email, otp) -> str:
+    def verify_otp(cls, email, otp) -> int:
         """Function responsible for verifying the OTP Code."""
         session = get_session()
         try:
             user_otp_query = session.execute(
-                select(User.otp_secret, User.otp_expiry)
+                select(User.otp_secret, User.otp_expiry, User.user_id)
                 .where(User.user_id == UserProfile.user_id)
                 .where(UserProfile.email == email)
             ).first()
             user_otp_secret, user_otp_expiry = user_otp_query
-            session.execute(user_otp_query).first()
+            user_id = session.execute(user_otp_query).first()[2]
             if user_otp_secret is None or user_otp_expiry is None:
                 raise OTPExpiredException("OTP has expired.")
             if user_otp_expiry < datetime.now():
@@ -245,13 +256,14 @@ class User(Base):
             )
             session.execute(query)
             session.commit()
-            return 'otp_verified'
+            return user_id
         except (OperationalError, OTPExpiredException, OTPIncorrectException,
                 EmailNotFoundException) as e:
             session.rollback()
             raise e
         finally:
             session.close()
+
     @classmethod
     def is_account_verified(cls, email) -> bool:
         """
@@ -271,12 +283,13 @@ class User(Base):
             raise e
         finally:
             session.close()
+
     @classmethod
     def verify_email(cls, token):
         """ Function responsible for verifying the email."""
         session = get_session()
         try:
-            cleaned_token = urllib.parse.unquote(token).replace(" ", "+")
+            cleaned_token = unquote(token).replace(" ", "+")
             user = session.query(cls).options(joinedload(cls.profile)).join(UserProfile).filter(
                 or_(
                     cls.verification_token == cleaned_token,
@@ -291,7 +304,8 @@ class User(Base):
                 email = user.profile.email
                 session.commit()
                 cls.resend_email_verification(email)
-                raise ValueError("Token expired. A new verification link has been sent.")
+                raise ValueError(
+                    "Token expired. A new verification link has been sent.")
             user.verified_account = True
             user.verification_token = None
             user.verification_expiry = None
@@ -302,6 +316,7 @@ class User(Base):
             raise e
         finally:
             session.close()
+
     @classmethod
     def send_forgot_password_link(cls, email):
         """
@@ -314,7 +329,7 @@ class User(Base):
             ).first()
             if user is None:
                 raise EmailNotFoundException("Email not found.")
-            reset_token = base64.b64encode(os.urandom(24)).decode('utf-8')
+            reset_token = b64encode(urandom(24)).decode('utf-8')
             reset_expiry = datetime.now() + timedelta(minutes=2880)
             query = (
                 update(User)
@@ -326,8 +341,8 @@ class User(Base):
             send_mail(
                 email=email,
                 message=f"Click the link to reset your password: "
-                        f"{cls.FRONT_END_FORGOT_PASSWORD_URL}"
-                        f"{reset_token}",
+                f"{cls.FRONT_END_FORGOT_PASSWORD_URL}"
+                f"{reset_token}",
                 subject="Reset Your Password"
             )
             return 'reset_link_sent'
@@ -336,6 +351,7 @@ class User(Base):
             raise e
         finally:
             session.close()
+
     @classmethod
     def resend_email_verification(cls, email):
         """
@@ -351,7 +367,8 @@ class User(Base):
             user_id = session.execute(query_user_id)
             if user_id is None:
                 raise EmailNotFoundException("Email not found.")
-            verification_token = base64.b64encode(os.urandom(24)).decode('utf-8')
+            verification_token = b64encode(
+                urandom(24)).decode('utf-8')
             verification_expiry = datetime.now() + timedelta(minutes=2880)
             query = (
                 update(User)
@@ -364,8 +381,8 @@ class User(Base):
             send_mail(
                 email=email,
                 message=f"Click the link to verify your email: "
-                        f"{UserProfile.FRONT_END_VERIFY_EMAIL_URL}"
-                        f"{verification_token}",
+                f"{UserProfile.FRONT_END_VERIFY_EMAIL_URL}"
+                f"{verification_token}",
                 subject="Verify Your Email"
             )
             return 'verification_link_sent'

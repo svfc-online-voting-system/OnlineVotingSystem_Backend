@@ -1,30 +1,31 @@
 """
     This is responsible for initializing the Database engine and session
 """
-import os
+from os import getenv
 import logging
+from logging import FileHandler, StreamHandler, getLogger
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-file_handler = logging.FileHandler('authentication.logs')
+file_handler = FileHandler('authentication.logs')
 file_handler.setLevel(logging.WARNING)
 
-console_handler = logging.StreamHandler()
+console_handler = StreamHandler()
 console_handler.setLevel(logging.WARNING)
 
-logger = logging.getLogger()
+logger = getLogger()
 logger.setLevel(logging.WARNING)
 logger.addHandler(file_handler)
 logger.addHandler(console_handler)
 
 
 DATABASE_URL = (
-    f"{os.getenv('DATABASE_BASE_URL')}"
-    f"{os.getenv('DATABASE_USERNAME')}:"
-    f"{os.getenv('DATABASE_PASSWORD')}@"
-    f"{os.getenv('DATABASE_HOSTNAME')}:"
-    f"{os.getenv('DATABASE_PORT')}/"
-    f"{os.getenv('DATABASE_NAME')}"
+    f"{getenv('DATABASE_BASE_URL')}"
+    f"{getenv('DATABASE_USERNAME')}:"
+    f"{getenv('DATABASE_PASSWORD')}@"
+    f"{getenv('DATABASE_HOSTNAME')}:"
+    f"{getenv('DATABASE_PORT')}/"
+    f"{getenv('DATABASE_NAME')}"
 )
 
 engine = create_engine(DATABASE_URL)
