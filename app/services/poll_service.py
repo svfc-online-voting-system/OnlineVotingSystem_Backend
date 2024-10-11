@@ -1,9 +1,7 @@
 """ Service routes for poll related endpoints and validation """
 
-from app.models.votes import Votes
 from app.models.vote_types import VoteTypes
-from app.models.poll_options import PollOptions
-from app.models.poll_votes import PollVotes
+from app.models.votes import Votes
 
 
 class PollService:

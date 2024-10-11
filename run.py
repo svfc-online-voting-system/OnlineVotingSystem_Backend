@@ -1,6 +1,4 @@
 """ This module is used to run the Flask app. """
-# run.py
-import os
 from os import getenv
 from ssl import SSLContext, PROTOCOL_TLS_SERVER
 from dotenv import load_dotenv

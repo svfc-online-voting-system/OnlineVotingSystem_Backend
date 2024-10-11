@@ -3,19 +3,20 @@
 """
 import os
 
-from sqlalchemy import ForeignKey, Column, Integer, String, Date, VARCHAR
-from sqlalchemy.orm import relationship
-from sqlalchemy.exc import IntegrityError, DataError, OperationalError, DatabaseError
+from sqlalchemy import ForeignKey, Column, Integer, Date, VARCHAR
 from sqlalchemy import select, insert
+from sqlalchemy.exc import IntegrityError, DataError, OperationalError, DatabaseError
+from sqlalchemy.orm import relationship
 
 from app.models.base import Base
 from app.utils.engine import get_session
 
-class UserProfile(Base):
+
+class Profiles(Base):
     """
     This class is responsible for the user profile model.
     """
-    __tablename__ = 'profile_table'
+    __tablename__ = 'profiles'
     user_id = Column(Integer, ForeignKey('users.user_id'), primary_key=True)
     username = Column(VARCHAR(length=45), unique=True, nullable=False)
     email = Column(VARCHAR(length=100), nullable=False)
@@ -23,7 +24,7 @@ class UserProfile(Base):
     last_name = Column(VARCHAR(length=100), nullable=False)
     date_of_birth = Column(Date, nullable=False)
     account_creation_date = Column(Date, nullable=False)
-    user = relationship("User", back_populates="profile")
+    users = relationship("Users", back_populates="profiles")
     FRONT_END_VERIFY_EMAIL_URL = os.getenv('LOCAL_FRONTEND_URL') + '/auth/verify-email/'
     @classmethod
     def add_new_profile_data(cls, profile_data: dict):
@@ -63,7 +64,7 @@ class UserProfile(Base):
         session = get_session()
         try:
             email = str(email)
-            stmt = select(cls.email).where(email == cls.email)
+            stmt = select(cls.email).where(cls.email == email)
             result = session.execute(stmt).first()
             if result:
                 return True

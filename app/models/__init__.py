@@ -1,6 +1,6 @@
 """This module initializes the models package."""
-from app.models.users import User
-from app.models.user_profile import UserProfile
+from app.models.users import Users
+from app.models.profiles import Profiles
 from app.models.votes import Votes
 from app.models.vote_types import VoteTypes
 from app.models.candidates import Candidates

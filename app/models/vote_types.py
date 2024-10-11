@@ -1,10 +1,11 @@
 """ This is the model for vote types that will represent the vote_types table """
 
-from app.utils.engine import get_session
+from sqlalchemy import Column, Integer, String, Enum
 from sqlalchemy.exc import IntegrityError, DataError, OperationalError, DatabaseError
-from sqlalchemy import Column, Integer, String, select, update, Enum
 from sqlalchemy.orm import relationship
+
 from app.models.base import Base
+from app.utils.engine import get_session
 
 
 class VoteTypes(Base):

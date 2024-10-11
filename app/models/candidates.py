@@ -1,8 +1,7 @@
 """ Class represents candidates name and information """
-from app.utils.engine import get_session
-from sqlalchemy.exc import IntegrityError, DataError, OperationalError, DatabaseError
 from sqlalchemy import Column, Integer, Text, VARCHAR
 from sqlalchemy.orm import relationship
+
 from app.models.base import Base
 
 

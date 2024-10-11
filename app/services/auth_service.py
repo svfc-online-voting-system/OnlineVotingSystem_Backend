@@ -22,8 +22,8 @@ from app.exception.authorization_exception import (EmailAlreadyTaken, EmailNotFo
                                                    PasswordResetLinkInvalidException,
                                                    AccountNotVerifiedException,
                                                    PasswordIncorrectException)
-from app.models.user_profile import UserProfile
-from app.models.users import User
+from app.models.profiles import Profiles
+from app.models.users import Users
 from app.utils.email_utility import send_mail
 
 logger = getLogger(__name__)
@@ -43,7 +43,7 @@ class AuthService:
                 'utf-8'), salt.encode('utf-8')).decode('utf-8')
             email_verification_token = (urlsafe_b64encode(urandom(128))
                                         .decode('utf-8').rstrip('='))
-            is_email_exists = UserProfile.email_exists(user_data.get('email'))
+            is_email_exists = Profiles.email_exists(user_data.get('email'))
             user_auth_data = {
                 'salt': salt,
                 'password': hashed_password,
@@ -60,11 +60,11 @@ class AuthService:
             }
             if is_email_exists:
                 raise EmailAlreadyTaken('Email already taken.')
-            user_id = User.create_new_user(user_auth_data)
+            user_id = Users.create_new_user(user_auth_data)
             user_profile_data['user_id'] = user_id
-            UserProfile.add_new_profile_data(user_profile_data)
+            Profiles.add_new_profile_data(user_profile_data)
             message = render_template("auth/welcome.html",
-                                      verification_url=f"{UserProfile.FRONT_END_VERIFY_EMAIL_URL}"
+                                      verification_url=f"{Profiles.FRONT_END_VERIFY_EMAIL_URL}"
                                                        f"{email_verification_token}",
                                       user_name=user_data.get('first_name').capitalize())
             send_mail(message=message,
@@ -83,11 +83,11 @@ class AuthService:
         proceed for checking the credentials.
         """
         try:
-            user_data = User.login(email)
+            user_data = Users.login(email)
             user_email = user_data.get('email')
             user_password = user_data.get('password')
             user_salt = user_data.get('salt')
-            is_verified = User.is_email_verified(email)
+            is_verified = Users.is_email_verified(email)
             if not is_verified:
                 raise AccountNotVerifiedException('Account not verified.')
             if user_email is None and user_password is None and user_salt is None:
@@ -97,7 +97,7 @@ class AuthService:
             if not is_password_matched:
                 raise PasswordIncorrectException('Password incorrect.')
             # Generate OTP and return a success message
-            return User.generate_otp(email)
+            return Users.generate_otp(email)
         except (OperationalError, ValueError,
                 PasswordIncorrectException,
                 EmailNotFoundException,
@@ -127,7 +127,7 @@ class AuthService:
         try:
             if not email:
                 raise ValueError("Email is required.")
-            return User.generate_otp(email=email)
+            return Users.generate_otp(email=email)
         except (OperationalError, ValueError, EmailNotFoundException) as e:
             raise e
     def verify_otp(self, email, otp):
@@ -135,10 +135,10 @@ class AuthService:
         try:
             if not email or not otp:
                 raise ValueError("Email and OTP are required.")
-            is_user_exists = UserProfile.email_exists(email)
+            is_user_exists = Profiles.email_exists(email)
             if not is_user_exists:
                 raise EmailNotFoundException('Email not found.')
-            user_id = User.verify_otp(email=email, otp=otp)
+            user_id = Users.verify_otp(email=email, otp=otp)
             if user_id:
                 return self.generate_session_token(email, user_id), self.generate_csrf_token()
             return None
@@ -151,10 +151,10 @@ class AuthService:
         try:
             if not email:
                 raise ValueError("Email is required.")
-            is_user_exists = UserProfile.email_exists(email)
+            is_user_exists = Profiles.email_exists(email)
             if not is_user_exists:
                 raise EmailNotFoundException('Email not found.')
-            return User.send_forgot_password_link(email)
+            return Users.send_forgot_password_link(email)
         except (EmailNotFoundException, ValueError, OperationalError) as e:
             raise e
     @staticmethod
@@ -163,7 +163,7 @@ class AuthService:
         try:
             if not token or not new_password:
                 raise ValueError("Token and new password is required.")
-            return User.verify_forgot_password_token(token, new_password)
+            return Users.verify_forgot_password_token(token, new_password)
         except (PasswordResetExpiredException, PasswordResetLinkInvalidException,
                 ValueError, DataError, OperationalError) as e:
             raise e
@@ -173,7 +173,7 @@ class AuthService:
         try:
             if not token:
                 raise ValueError("Email and token are required.")
-            return User.verify_email(token)
+            return Users.verify_email(token)
         except (ValueError, DataError, OperationalError) as e:
             raise e
     @staticmethod
@@ -182,6 +182,6 @@ class AuthService:
         try:
             if not email:
                 raise ValueError("Email is required.")
-            return User.resend_email_verification(email)
+            return Users.resend_email_verification(email)
         except (ValueError, EmailNotFoundException, DataError, OperationalError) as e:
             raise e

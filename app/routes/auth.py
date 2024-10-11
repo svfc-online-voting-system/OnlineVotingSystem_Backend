@@ -5,6 +5,7 @@ from logging import getLogger
 from flask import Blueprint, request, Response, make_response
 from jwt import ExpiredSignatureError, InvalidTokenError
 from marshmallow import ValidationError
+from app.extension import csrf
 
 from app.exception.authorization_exception import (EmailNotFoundException, OTPExpiredException,
                                                    OTPIncorrectException,
@@ -40,8 +41,8 @@ auth_blueprint.register_error_handler(PasswordResetLinkInvalidException,
                                       handle_password_reset_link_invalid_exception)
 auth_blueprint.register_error_handler(Exception, handle_general_exception)
 
-
 @auth_blueprint.route(rule='/auth/create-account', methods=['POST'])
+@csrf.exempt
 def create_account() -> Response:
     """ This is the route for creating an account. """
     sign_up_schema = SignUpSchema()
@@ -65,6 +66,7 @@ def create_account() -> Response:
     })
 
 @auth_blueprint.route(rule='/auth/login', methods=['POST'])
+@csrf.exempt
 def login() -> Response:
     """ This is the route for logging in. """
     login_schema = LoginSchema()

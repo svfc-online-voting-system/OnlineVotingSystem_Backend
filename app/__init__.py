@@ -11,13 +11,14 @@ Returns:
 """
 
 
-# app/__init__.py
-from logging import FileHandler, StreamHandler, basicConfig, getLogger, INFO
 from os import getenv, makedirs, path
+
 from flask import Flask
 from flask_jwt_extended import JWTManager
-from flask_wtf import CSRFProtect
-from app.extension import mail
+# app/__init__.py
+from logging import FileHandler, StreamHandler, basicConfig, getLogger, INFO
+
+from app.extension import mail, csrf
 from app.routes.auth import auth_blueprint
 
 
@@ -27,8 +28,9 @@ def create_app():
     app.config['JWT_SECRET_KEY'] = getenv('JWT_SECRET_KEY')
     app.config['WTF_CSRF_SECRET_KEY'] = getenv('WTF_CSRF_SECRET_KEY')
     app.config['JWT_ACCESS_COOKIE_NAME'] = 'Authorization'
-    CSRFProtect(app)
+    app.config['WTF_CSRF_ENABLED'] = True
     JWTManager(app)
+    csrf.init_app(app)
     app.config['MAIL_SERVER'] = getenv('MAIL_SERVER')
     app.config['MAIL_PORT'] = getenv('MAIL_PORT')
     app.config['MAIL_USE_TLS'] = getenv('MAIL_USE_TLS')

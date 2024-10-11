@@ -41,6 +41,8 @@ class SignUpSchema(Schema):
             'invalid': 'Date of birth is invalid. Please use the format YYYY-MM-DD.'
         }
     )
+    
+    # noinspection PyUnusedLocal
     @post_load
     def validate_age(self, data, **kwargs):  # pylint: disable=unused-argument
         """ This will check if the user is of legal age. """

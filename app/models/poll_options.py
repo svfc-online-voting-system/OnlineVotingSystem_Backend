@@ -1,10 +1,10 @@
 """ Class represent the shape of the table poll options that will be used for poll base votes """
+from sqlalchemy import Column, Integer, update, ForeignKey, insert, delete, and_, VARCHAR
+from sqlalchemy.exc import IntegrityError, DataError, OperationalError, DatabaseError
 from sqlalchemy.orm import relationship
 
-from app.utils.engine import get_session
-from sqlalchemy.exc import IntegrityError, DataError, OperationalError, DatabaseError
-from sqlalchemy import Column, Integer, String, update, ForeignKey, insert, delete, and_, VARCHAR
 from app.models.base import Base
+from app.utils.engine import get_session
 
 
 class PollOptions(Base):

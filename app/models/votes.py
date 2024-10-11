@@ -24,7 +24,7 @@ class Votes(Base):
                               back_populates='vote_types',
                               uselist=False, cascade='all, delete-orphan')
     users = relationship('Users',
-                         back_populates='users',
+                         back_populates='Votes',
                          uselist=False, cascade="all, delete-orphan")
     
     @classmethod

@@ -1,9 +1,9 @@
 """ Represents the model ballots cast """
 from datetime import datetime
+
 from sqlalchemy import Column, Integer, ForeignKey, DateTime
 from sqlalchemy.orm import relationship
-from sqlalchemy.exc import IntegrityError, DataError, OperationalError, DatabaseError
-from sqlalchemy.sql.operators import or_
+
 from app.models.base import Base
 
 
