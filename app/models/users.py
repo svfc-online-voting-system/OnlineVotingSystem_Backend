@@ -69,6 +69,9 @@ class User(Base):
     profile = relationship("UserProfile",
                            back_populates="user",
                            uselist=False, cascade="all, delete-orphan")
+    votes = relationship('Votes', back_populates='User', uselist=False, cascade='all, delete-orphan')
+    administrator = relationship('Administrator', back_populates='User', uselist=True, cascade='all, delete-orphan')
+    ballots = relationship('Ballots', uselist=True, cascade='all, delete-orphan')
     FRONT_END_FORGOT_PASSWORD_URL = getenv(
         'LOCAL_FRONTEND_URL') + '/reset-password/'
 

@@ -14,7 +14,7 @@ class PollOptions(Base):
     option_text = Column(String(255), nullable=False)
     vote_types = relationship('VoteTypes',
                               back_populates='vote_types',
-                              uselist=False, cascade='all, delete_orphan')
+                              uselist=False, cascade='all, delete-orphan')
     
     @classmethod
     def add_option(cls, poll_info: dict) -> bool:

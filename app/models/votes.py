@@ -18,14 +18,14 @@ class Votes(Base):
     vote_id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey('users.user_id'))
     vote_type_id = Column(Integer, ForeignKey('vote_types.vote_type_id'))
-    vote_timestamp = Column(DateTime, nullable=False)
+    vote_timestamp = Column(DateTime, nullable=False, default=datetime.now())
     approved = Column(Boolean, nullable=False, default=expression.false())
     vote_types = relationship('VoteTypes',
                               back_populates='vote_types',
-                              uselist=False, cascade='all, delete_orphan')
+                              uselist=False, cascade='all, delete-orphan')
     users = relationship('Users',
                          back_populates='users',
-                         uselist=False, cascade="all, delete_orphan")
+                         uselist=False, cascade="all, delete-orphan")
     
     @classmethod
     def add_new_votes(cls, user_id: int, vote_type_id: int) -> int:
