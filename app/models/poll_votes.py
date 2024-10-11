@@ -1,7 +1,8 @@
 """ This is the model representing the poll_votes table """
 from app.utils.engine import get_session
 from sqlalchemy.exc import IntegrityError, DataError, OperationalError, DatabaseError
-from sqlalchemy import Column, Integer, relationship, ForeignKey, insert, delete, and_, update
+from sqlalchemy import Column, Integer, ForeignKey, insert, delete, and_, update
+from sqlalchemy.orm import relationship
 from app.models.base import Base
 
 class PollVotes(Base):
@@ -10,8 +11,9 @@ class PollVotes(Base):
     vote_id = Column(Integer, ForeignKey('votes.vote_id'), nullable=False)
     option_id = Column(Integer, ForeignKey('poll_options.option_id'), nullable=False)
     user_id = Column(Integer, ForeignKey('users.user_id'), nullable=False)
-    user = relationship('Users', back_populates='poll_votes', uselist=False, cascade='all, delete-orphan')
-    votes = relationship('Votes', back_populates='poll_votes', uselist=False, cascade='all, delete-orphan')
+    
+    users = relationship('Users', back_populates='poll_votes', uselist=False)
+    votes = relationship('Votes', back_populates='poll_votes', uselist=False)
     poll_options = relationship('PollOptions', back_populates='poll_votes', uselist=False, cascade='all, delete-orphan')
     
     @classmethod

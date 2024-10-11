@@ -7,6 +7,6 @@ class ElectoralVotes(Base):
     __tablename__ = 'electoral_votes'
     electoral_vote_id = Column(Integer, primary_key=True, autoincrement=True)
     vote_id = Column(Integer, ForeignKey('votes.vote_id'), nullable=False)
-    candidate_id = Column(Integer, ForeignKey('candidates.candidate_id'), nullable=False)
-    candidates = relationship('Candidates', back_populates='electoral_votes', uselist=False, cascade='all, delete-orphan')
-    votes = relationship('Votes', back_populates='electoral_votes', uselist=False, cascade='all, delete-orphan')
+    candidate_id = Column(Integer, ForeignKey('candidates.candidate_id'), nullable=False, unique=True)
+    candidate = relationship('Candidates', back_populates='electoral_vote', uselist=False, cascade='all, delete-orphan', single_parent=True)
+    votes = relationship('Votes', back_populates='electoral_vote', uselist=False, cascade='all, delete-orphan', single_parent=True)

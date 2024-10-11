@@ -21,11 +21,19 @@ class Votes(Base):
     vote_timestamp = Column(DateTime, nullable=False, default=datetime.now())
     approved = Column(Boolean, nullable=False, default=expression.false())
     vote_types = relationship('VoteTypes',
-                              back_populates='vote_types',
-                              uselist=False, cascade='all, delete-orphan')
+                              back_populates='votes',
+                              uselist=False)
     users = relationship('Users',
-                         back_populates='Votes',
-                         uselist=False, cascade="all, delete-orphan")
+                         back_populates='votes',
+                         uselist=False)
+    electoral_vote = relationship('ElectoralVotes',
+                                    back_populates='votes',
+                                    uselist=False,
+                                    cascade='all, delete-orphan')
+    poll_votes = relationship('PollVotes',
+                                back_populates='votes',
+                                uselist=False,
+                                cascade='all, delete-orphan')
     
     @classmethod
     def add_new_votes(cls, user_id: int, vote_type_id: int) -> int:

@@ -10,5 +10,4 @@ class Candidates(Base):
     candidate_id = Column(Integer, autoincrement=True, primary_key=True, nullable=False)
     name = Column(VARCHAR(length=255), nullable=False)
     info = Column(Text, nullable=False)
-    candidates = relationship('ElectoralVotes', back_populates='candidates', uselist=True, cascade='all, delete-orphan')
-    
+    electoral_vote = relationship('ElectoralVotes', back_populates='candidate', uselist=False, cascade='all, delete-orphan')

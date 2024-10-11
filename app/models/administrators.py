@@ -6,11 +6,11 @@ from app.models.base import Base
 from app.utils.engine import get_session
 
 
-class Administrator(Base):
+class Administrators(Base):
     __tablename__ = 'administrators'
     admin_id = Column(Integer, primary_key=True, autoincrement=True, nullable=False)
-    user_id = Column(Integer, ForeignKey('user.user_id'), nullable=False)
-    user = relationship('User', back_populates='Administrator', uselist=True, cascade='all, delete-orphan')
+    user_id = Column(Integer, ForeignKey('users.user_id'), nullable=False)
+    users = relationship('Users', back_populates='administrators', uselist=True)
     
     @classmethod
     def add_admin(cls, user_id: int) -> int:

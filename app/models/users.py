@@ -65,12 +65,20 @@ class Users(Base):
         Boolean, default=expression.false(), nullable=False)
     verification_token = Column(String(175), nullable=True)
     verification_expiry = Column(Date, nullable=True)
+    votes = relationship('Votes',
+                         back_populates='users',
+                         uselist=False, cascade="all, delete-orphan")
     profiles = relationship("Profiles",
-                           back_populates="users",
-                           uselist=False, cascade="all, delete-orphan")
+                            back_populates="users", cascade="all, delete-orphan")
+    ballots = relationship("Ballots",
+                            back_populates="users", cascade="all, delete-orphan")
+    administrators = relationship("Administrators",
+                                    back_populates="users", cascade="all, delete-orphan")
+    poll_votes = relationship("PollVotes",
+                                back_populates="users", cascade="all, delete-orphan")
     FRONT_END_FORGOT_PASSWORD_URL = getenv(
         'LOCAL_FRONTEND_URL') + '/reset-password/'
-
+    
     @classmethod
     def create_new_user(cls, user_data: dict):
         """Create a new user in the database."""
@@ -92,15 +100,15 @@ class Users(Base):
             raise e
         finally:
             session.close()
-
+    
     @classmethod
     def login(cls, email):
         """Login a user."""
         session = get_session()
         try:
             user_with_profile = (session.query(cls)
-                                .options(joinedload(cls.profiles))
-                                .join(Profiles).filter(
+                                 .options(joinedload(cls.profiles))
+                                 .join(Profiles).filter(
                 Profiles.email == email
             ).first())
             if user_with_profile:
@@ -118,7 +126,7 @@ class Users(Base):
             raise e
         finally:
             session.close()
-
+    
     @classmethod
     def generate_otp(cls, email) -> str:
         """
@@ -135,7 +143,7 @@ class Users(Base):
             subject = "Your OTP Verification code"
             message = \
                 f"Here's your OTP Code: {
-                    seven_digit_otp}. Use this to get access to your account."
+                seven_digit_otp}. Use this to get access to your account."
             query = (
                 update(Users)
                 .where(Users.user_id == Profiles.user_id)
@@ -151,7 +159,7 @@ class Users(Base):
             raise e
         finally:
             session.close()
-
+    
     @classmethod
     def is_email_verified(cls, email):
         """Check if an email is verified."""
@@ -166,7 +174,7 @@ class Users(Base):
             raise e
         finally:
             session.close()
-
+    
     @classmethod
     def verify_forgot_password_token(cls, reset_token, new_password) -> str:
         """
@@ -196,7 +204,7 @@ class Users(Base):
             raise e
         finally:
             session.close()
-
+    
     @classmethod
     def password_reset(cls, new_password, user_id):
         """
@@ -220,7 +228,7 @@ class Users(Base):
             raise e
         finally:
             session.close()
-
+    
     @classmethod
     def verify_otp(cls, email, otp) -> str:
         """Function responsible for verifying the OTP Code."""
@@ -262,7 +270,7 @@ class Users(Base):
             raise e
         finally:
             session.close()
-
+    
     @classmethod
     def is_account_verified(cls, email) -> bool:
         """
@@ -282,7 +290,7 @@ class Users(Base):
             raise e
         finally:
             session.close()
-
+    
     @classmethod
     def verify_email(cls, token):
         """ Function responsible for verifying the email."""
@@ -315,7 +323,7 @@ class Users(Base):
             raise e
         finally:
             session.close()
-
+    
     @classmethod
     def send_forgot_password_link(cls, email):
         """
@@ -340,8 +348,8 @@ class Users(Base):
             send_mail(
                 email=email,
                 message=f"Click the link to reset your password: "
-                f"{cls.FRONT_END_FORGOT_PASSWORD_URL}"
-                f"{reset_token}",
+                        f"{cls.FRONT_END_FORGOT_PASSWORD_URL}"
+                        f"{reset_token}",
                 subject="Reset Your Password"
             )
             return 'reset_link_sent'
@@ -350,7 +358,7 @@ class Users(Base):
             raise e
         finally:
             session.close()
-
+    
     @classmethod
     def resend_email_verification(cls, email):
         """
@@ -380,8 +388,8 @@ class Users(Base):
             send_mail(
                 email=email,
                 message=f"Click the link to verify your email: "
-                f"{Profiles.FRONT_END_VERIFY_EMAIL_URL}"
-                f"{verification_token}",
+                        f"{Profiles.FRONT_END_VERIFY_EMAIL_URL}"
+                        f"{verification_token}",
                 subject="Verify Your Email"
             )
             return 'verification_link_sent'

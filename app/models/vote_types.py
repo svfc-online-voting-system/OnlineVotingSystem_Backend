@@ -14,12 +14,18 @@ class VoteTypes(Base):
     vote_type_id = Column(Integer, primary_key=True, autoincrement=True)
     type_name = Column(Enum('poll', 'electoral'), nullable=False)
     title = Column(String(255), nullable=False)
-    vote_types = relationship('Votes', back_populates='vote_types', uselist=True, cascade='all, delete-orphan')
-    ballots = relationship('Ballots', back_populates='vote_types', uselist=True, cascade='all, delete-orphan')
-    
+    votes = relationship('Votes',
+                              back_populates='vote_types', cascade='all, delete-orphan')
+    ballots = relationship('Ballots',
+                           back_populates='vote_types',
+                           uselist=True, cascade='all, delete-orphan')
+    poll_options = relationship('PollOptions',
+                                back_populates='vote_types',
+                                uselist=True, cascade='all, delete-orphan')
     @classmethod
     def add_new_vote(cls, poll_title: str, poll_type: str) -> int:
-        """ Responsible for adding new vote type returning the id for referencing in the caller """
+        """ Responsible for adding new vote
+        type returning the id for referencing in the caller """
         session = get_session()
         try:
             if poll_type not in ['poll', 'electoral']:
