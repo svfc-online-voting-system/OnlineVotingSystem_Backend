@@ -3,7 +3,7 @@
 """
 import os
 
-from sqlalchemy import ForeignKey, Column, Integer, String, Date
+from sqlalchemy import ForeignKey, Column, Integer, String, Date, VARCHAR
 from sqlalchemy.orm import relationship
 from sqlalchemy.exc import IntegrityError, DataError, OperationalError, DatabaseError
 from sqlalchemy import select, insert
@@ -17,10 +17,10 @@ class UserProfile(Base):
     """
     __tablename__ = 'profile_table'
     user_id = Column(Integer, ForeignKey('users.user_id'), primary_key=True)
-    username = Column(String(45), unique=True, nullable=False)
-    email = Column(String(100), nullable=False)
-    first_name = Column(String(100), nullable=False)
-    last_name = Column(String(100), nullable=False)
+    username = Column(VARCHAR(length=45), unique=True, nullable=False)
+    email = Column(VARCHAR(length=100), nullable=False)
+    first_name = Column(VARCHAR(length=100), nullable=False)
+    last_name = Column(VARCHAR(length=100), nullable=False)
     date_of_birth = Column(Date, nullable=False)
     account_creation_date = Column(Date, nullable=False)
     user = relationship("User", back_populates="profile")

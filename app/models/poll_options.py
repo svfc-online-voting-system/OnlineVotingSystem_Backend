@@ -3,7 +3,7 @@ from sqlalchemy.orm import relationship
 
 from app.utils.engine import get_session
 from sqlalchemy.exc import IntegrityError, DataError, OperationalError, DatabaseError
-from sqlalchemy import Column, Integer, String, update, ForeignKey, insert, delete, and_
+from sqlalchemy import Column, Integer, String, update, ForeignKey, insert, delete, and_, VARCHAR
 from app.models.base import Base
 
 
@@ -11,7 +11,7 @@ class PollOptions(Base):
     __tablename__ = 'poll_options'
     option_id = Column(Integer, primary_key=True, autoincrement=True, nullable=False)
     poll_id = Column(Integer, ForeignKey('vote_types.vote_type_id'), nullable=False)
-    option_text = Column(String(255), nullable=False)
+    option_text = Column(VARCHAR(length=255), nullable=False)
     vote_types = relationship('VoteTypes',
                               back_populates='vote_types',
                               uselist=False, cascade='all, delete-orphan')

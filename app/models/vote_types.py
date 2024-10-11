@@ -2,7 +2,8 @@
 
 from app.utils.engine import get_session
 from sqlalchemy.exc import IntegrityError, DataError, OperationalError, DatabaseError
-from sqlalchemy import Column, Integer, String, Date, select, update, Boolean, Enum
+from sqlalchemy import Column, Integer, String, select, update, Enum
+from sqlalchemy.orm import relationship
 from app.models.base import Base
 
 
@@ -12,6 +13,8 @@ class VoteTypes(Base):
     vote_type_id = Column(Integer, primary_key=True, autoincrement=True)
     type_name = Column(Enum('poll', 'electoral'), nullable=False)
     title = Column(String(255), nullable=False)
+    vote_types = relationship('Votes', back_populates='vote_types', uselist=True, cascade='all, delete-orphan')
+    ballots = relationship('Ballots', back_populates='vote_types', uselist=True, cascade='all, delete-orphan')
     
     @classmethod
     def add_new_vote(cls, poll_title: str, poll_type: str) -> int:

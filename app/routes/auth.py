@@ -169,12 +169,12 @@ def otp_verification() -> Response:
     if not email or not otp or len(otp) != 7 or not otp.isdigit():
         raise ValueError('Invalid data format')
     auth_service_otp = AuthService()
-    session_token = auth_service_otp.verify_otp(email=email, otp=otp)
-    if session_token:
+    session_token, csrf_token = auth_service_otp.verify_otp(email=email, otp=otp)
+    if session_token and csrf_token:
         return set_response(200, {
             'code': 'success',
             'message': 'OTP Verified'
-        }, authorization_token=session_token)
+        }, authorization_token=session_token, csrf_token=csrf_token)
     return set_response(401, {
         'code': 'unauthorized',
         'message': 'Unauthorized access.'

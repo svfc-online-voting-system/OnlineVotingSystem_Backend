@@ -12,10 +12,11 @@ Returns:
 
 
 # app/__init__.py
-import logging
-import os
+from logging import FileHandler, StreamHandler, basicConfig, getLogger, INFO
+from os import getenv, makedirs, path
 from flask import Flask
 from flask_jwt_extended import JWTManager
+from flask_wtf import CSRFProtect
 from app.extension import mail
 from app.routes.auth import auth_blueprint
 
@@ -23,25 +24,27 @@ from app.routes.auth import auth_blueprint
 def create_app():
     """Factory function to create the Flask app instance."""
     app = Flask(__name__, template_folder='templates')
-    app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY', 'default-secret-key')
+    app.config['JWT_SECRET_KEY'] = getenv('JWT_SECRET_KEY')
+    app.config['WTF_CSRF_SECRET_KEY'] = getenv('WTF_CSRF_SECRET_KEY')
     app.config['JWT_ACCESS_COOKIE_NAME'] = 'Authorization'
+    CSRFProtect(app)
     JWTManager(app)
-    app.config['MAIL_SERVER'] = os.getenv('MAIL_SERVER')
-    app.config['MAIL_PORT'] = os.getenv('MAIL_PORT')
-    app.config['MAIL_USE_TLS'] = os.getenv('MAIL_USE_TLS')
-    app.config['MAIL_USERNAME'] = os.getenv('MAIL_USERNAME')
-    app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD')
-    app.config['MAIL_DEFAULT_SENDER'] = os.getenv('MAIL_DEFAULT_SENDER')
+    app.config['MAIL_SERVER'] = getenv('MAIL_SERVER')
+    app.config['MAIL_PORT'] = getenv('MAIL_PORT')
+    app.config['MAIL_USE_TLS'] = getenv('MAIL_USE_TLS')
+    app.config['MAIL_USERNAME'] = getenv('MAIL_USERNAME')
+    app.config['MAIL_PASSWORD'] = getenv('MAIL_PASSWORD')
+    app.config['MAIL_DEFAULT_SENDER'] = getenv('MAIL_DEFAULT_SENDER')
     mail.init_app(app)
-    os.makedirs(os.path.join(app.root_path, 'logs'), exist_ok=True)
-    logging.basicConfig(
-        level=logging.INFO,
+    makedirs(path.join(app.root_path, 'logs'), exist_ok=True)
+    basicConfig(
+        level=INFO,
         format='%(asctime)s - %(levelname)s - %(message)s',
         handlers=[
-            logging.FileHandler(os.path.join(app.root_path, 'logs', 'authentication.log')),
-            logging.StreamHandler()
+            FileHandler(path.join(app.root_path, 'logs', 'authentication.log')),
+            StreamHandler()
         ]
     )
     app.register_blueprint(auth_blueprint)
-    logging.getLogger()
+    getLogger()
     return app

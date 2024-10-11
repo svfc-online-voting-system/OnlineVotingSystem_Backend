@@ -9,6 +9,7 @@ from datetime import datetime
 from base64 import urlsafe_b64encode
 from logging import getLogger
 from flask import render_template
+from flask_wtf.csrf import generate_csrf
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
 from bcrypt import hashpw, gensalt, checkpw
 from jwt import ExpiredSignatureError, InvalidTokenError
@@ -103,6 +104,10 @@ class AuthService:
                 AccountNotVerifiedException) as e:
             raise e
     @staticmethod
+    def generate_csrf_token():
+        """This is the function responsible for generating the CSRF token."""
+        return generate_csrf()
+    @staticmethod
     def generate_session_token(email, user_id):
         """Generate a session token during call as payload."""
         return create_access_token(identity={'email': email, 'user_id': user_id})
@@ -135,7 +140,7 @@ class AuthService:
                 raise EmailNotFoundException('Email not found.')
             user_id = User.verify_otp(email=email, otp=otp)
             if user_id:
-                return self.generate_session_token(email, user_id)
+                return self.generate_session_token(email, user_id), self.generate_csrf_token()
             return None
         except (OperationalError, ValueError, OTPExpiredException, OTPIncorrectException,
                 EmailNotFoundException) as e:

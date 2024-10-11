@@ -88,3 +88,38 @@ def edit_option():
     poll_service = PollService()
     poll_service.get_poll_details(poll_id=poll_id)
     
+@jwt_required(locations=['cookies', 'headers'])
+@poll_blueprint.route(rule='/user/cast-poll-vote', methods=['POST'])
+def cast_poll_vote():
+    # TODO: Enhance later
+    if request.json is None:
+        return set_response(400, {
+            'code': 'invalid_request',
+            'message': 'Bad Request: No data provided.'})
+    vote_info = request.json
+    poll_service = PollService()
+    poll_service.cast_poll_vote(vote_info=vote_info)
+    
+@jwt_required(locations=['cookies', 'headers'])
+@poll_blueprint.route(rule='/user/uncast-poll-vote', methods=['POST'])
+def uncast_poll_vote():
+    # TODO: Enhance later
+    if request.json is None:
+        return set_response(400, {
+            'code': 'invalid_request',
+            'message': 'Bad Request: No data provided.'})
+    vote_info = request.json
+    poll_service = PollService()
+    poll_service.uncast_poll_vote(vote_info=vote_info)
+    
+@jwt_required(locations=['cookies', 'headers'])
+@poll_blueprint.route(rule='/user/change-vote', methods=['POST'])
+def change_vote():
+    # TODO: Enhance later
+    if request.json is None:
+        return set_response(400, {
+            'code': 'invalid_request',
+            'message': 'Bad Request: No data provided.'})
+    vote_info = request.json
+    poll_service = PollService()
+    poll_service.change_vote(vote_info=vote_info)

@@ -3,6 +3,7 @@
 from app.models.votes import Votes
 from app.models.vote_types import VoteTypes
 from app.models.poll_options import PollOptions
+from app.models.poll_votes import PollVotes
 
 
 class PollService:
@@ -44,4 +45,19 @@ class PollService:
     @classmethod
     def edit_option(cls, option_id: int):
         """ Responsible for editing an option in a poll """
+        pass
+    
+    @classmethod
+    def cast_poll_vote(cls, vote_info: dict):
+        """ Responsible for casting a vote """
+        pass
+    
+    @classmethod
+    def uncast_poll_vote(cls, vote_info: dict):
+        """ Responsible for uncasting a vote """
+        pass
+    
+    @classmethod
+    def change_vote(cls, vote_info: dict):
+        """ Responsible for changing a vote """
         pass

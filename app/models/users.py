@@ -36,7 +36,7 @@ from bcrypt import gensalt
 from bcrypt import hashpw
 from pyotp import TOTP
 
-from sqlalchemy import Column, Integer, String, Date, select, update, Boolean
+from sqlalchemy import Column, Integer, Date, select, update, Boolean, VARCHAR
 from sqlalchemy.orm import relationship, joinedload
 from sqlalchemy.exc import IntegrityError, DataError, OperationalError, DatabaseError
 from sqlalchemy.sql import expression
@@ -56,15 +56,15 @@ class User(Base):
     """Class representing a User in the database."""
     __tablename__ = 'users'
     user_id = Column(Integer, primary_key=True, autoincrement=True)
-    salt = Column(String(45), nullable=False)
-    hashed_password = Column(String(255), nullable=False)
-    otp_secret = Column(String(20), nullable=True)
+    salt = Column(VARCHAR(length=45), nullable=False)
+    hashed_password = Column(VARCHAR(length=255), nullable=False)
+    otp_secret = Column(VARCHAR(length=20), nullable=True)
     otp_expiry = Column(Date, nullable=True)
-    reset_token = Column(String(175), nullable=True)
+    reset_token = Column(VARCHAR(length=175), nullable=True)
     reset_expiry = Column(Date, nullable=True)
     verified_account = Column(
         Boolean, default=expression.false(), nullable=False)
-    verification_token = Column(String(175), nullable=True)
+    verification_token = Column(VARCHAR(length=175), nullable=True)
     verification_expiry = Column(Date, nullable=True)
     profile = relationship("UserProfile",
                            back_populates="user",

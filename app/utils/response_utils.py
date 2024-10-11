@@ -17,14 +17,22 @@ def set_response(status_code, messages, **kwargs):
     response.headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS, GET, DELETE, PUT'
     response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
     if 'authorization_token' in kwargs:
-        expires = datetime.now() + timedelta(days=365)
         response.set_cookie(
             key='Authorization',
             value=kwargs['authorization_token'],
             httponly=True,
             secure=True,
             samesite='None',
-            expires=expires,
+            expires=datetime.now() + timedelta(days=365),
+            path='/'
+        )
+    if 'csrf_token' in kwargs:
+        response.set_cookie(
+            key='X-CSRF-TOKEN',
+            value=kwargs['csrf_token'],
+            httponly=True,
+            secure=True,
+            samesite='None',
             path='/'
         )
     response_data = json.dumps(messages)
