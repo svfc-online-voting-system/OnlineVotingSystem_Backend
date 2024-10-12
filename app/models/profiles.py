@@ -2,6 +2,7 @@
     This module contains the user profile model.
 """
 import os
+from os import getenv
 
 from sqlalchemy import ForeignKey, Column, Integer, Date, VARCHAR
 from sqlalchemy import select, insert
@@ -25,7 +26,7 @@ class Profiles(Base):
     date_of_birth = Column(Date, nullable=False)
     account_creation_date = Column(Date, nullable=False)
     users = relationship("Users", back_populates="profiles")
-    FRONT_END_VERIFY_EMAIL_URL = os.getenv('LOCAL_FRONTEND_URL') + '/auth/verify-email/'
+    FRONT_END_VERIFY_EMAIL_URL = os.getenv('LOCAL_FRONTEND_URL') + getenv('API_VERIFY_EMAIL')
     @classmethod
     def add_new_profile_data(cls, profile_data: dict):
         """Add new profile data to the database."""
@@ -53,22 +54,6 @@ class Profiles(Base):
             session.execute(query)
             session.commit()
             return 'success'
-        except (DataError, IntegrityError, OperationalError, DatabaseError) as e:
-            session.rollback()
-            raise e
-        finally:
-            session.close()
-    @classmethod
-    def email_exists(cls, email: str) -> bool:
-        """Check if an email exists in the database."""
-        session = get_session()
-        try:
-            email = str(email)
-            stmt = select(cls.email).where(cls.email == email)
-            result = session.execute(stmt).first()
-            if result:
-                return True
-            return False  # pylint: disable=R0801
         except (DataError, IntegrityError, OperationalError, DatabaseError) as e:
             session.rollback()
             raise e

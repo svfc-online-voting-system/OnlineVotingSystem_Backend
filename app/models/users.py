@@ -35,13 +35,12 @@ import time
 import bcrypt
 import pyotp
 
-from sqlalchemy import Column, Integer, String, Date, select, update, Boolean
+from sqlalchemy import Column, Integer, Date, select, update, Boolean, VARCHAR
 from sqlalchemy.orm import relationship, joinedload
 from sqlalchemy.exc import IntegrityError, DataError, OperationalError, DatabaseError
 from sqlalchemy.sql import expression
 from sqlalchemy.sql.operators import or_
 
-from app.models.profiles import Profiles
 from app.utils.email_utility import send_mail
 from app.utils.engine import get_session, get_engine
 from app.exception.authorization_exception import (EmailNotFoundException, OTPExpiredException,
@@ -55,21 +54,25 @@ class Users(Base):
     """Class representing a User in the database."""
     __tablename__ = 'users'
     user_id = Column(Integer, primary_key=True, autoincrement=True)
-    salt = Column(String(45), nullable=False)
-    hashed_password = Column(String(255), nullable=False)
-    otp_secret = Column(String(20), nullable=True)
+    salt = Column(VARCHAR(45), nullable=False)
+    hashed_password = Column(VARCHAR(255), nullable=False)
+    otp_secret = Column(VARCHAR(20), nullable=True)
     otp_expiry = Column(Date, nullable=True)
-    reset_token = Column(String(175), nullable=True)
+    reset_token = Column(VARCHAR(175), nullable=True)
     reset_expiry = Column(Date, nullable=True)
-    verified_account = Column(
-        Boolean, default=expression.false(), nullable=False)
-    verification_token = Column(String(175), nullable=True)
+    verified_account = Column(Boolean, default=expression.false(), nullable=False)
+    verification_token = Column(VARCHAR(175), nullable=True)
     verification_expiry = Column(Date, nullable=True)
+    username = Column(VARCHAR(length=45), unique=True, nullable=False)
+    email = Column(VARCHAR(length=100), nullable=False)
+    first_name = Column(VARCHAR(length=100), nullable=False)
+    last_name = Column(VARCHAR(length=100), nullable=False)
+    date_of_birth = Column(Date, nullable=False)
+    creation_date = Column(Date, nullable=False)
+    is_admin = Column(Boolean, default=expression.false(), nullable=False)
     votes = relationship('Votes',
                          back_populates='users',
                          uselist=False, cascade="all, delete-orphan")
-    profiles = relationship("Profiles",
-                            back_populates="users", cascade="all, delete-orphan")
     ballots = relationship("Ballots",
                             back_populates="users", cascade="all, delete-orphan")
     administrators = relationship("Administrators",
@@ -90,7 +93,14 @@ class Users(Base):
                 hashed_password=user_data.get("password"),
                 verification_token=user_data.get("email_verification_token"),
                 verification_expiry=datetime.now() + timedelta(minutes=2880),
-                verified_account=False
+                verified_account=False,
+                username=user_data.get("email").split('@')[0],
+                email=user_data.get("email"),
+                first_name=user_data.get("first_name").capitalize(),
+                last_name=user_data.get("last_name").capitalize(),
+                date_of_birth=user_data.get("date_of_birth"),
+                creation_date=datetime.now(),
+                is_admin=user_data.get("is_admin")
             )
             session.add(new_user)
             session.commit()
@@ -106,22 +116,23 @@ class Users(Base):
         """Login a user."""
         session = get_session()
         try:
-            user_with_profile = (session.query(cls)
-                                 .options(joinedload(cls.profiles))
-                                 .join(Profiles).filter(
-                Profiles.email == email
-            ).first())
-            if user_with_profile:
-                email = user_with_profile.profile.email
-                password = user_with_profile.hashed_password
-                salt = user_with_profile.salt
-                return {
-                    'email': email,
-                    'password': password,
-                    'salt': salt
-                }
-            return None, None, None
+            user_with_profile_stmt = (
+                select(cls.email, cls.hashed_password, cls.salt)
+                .where(cls.email == email)
+            )
+            user_with_profile = session.execute(user_with_profile_stmt).first()
+            if user_with_profile is None:
+                raise EmailNotFoundException("Email not found.")
+            email, hashed_password, salt = user_with_profile
+            return {
+                'email': email,
+                'password': hashed_password,
+                'salt': salt
+            }
         except OperationalError as e:
+            session.rollback()
+            raise e
+        except EmailNotFoundException as e:
             session.rollback()
             raise e
         finally:
@@ -354,6 +365,18 @@ class Users(Base):
             )
             return 'reset_link_sent'
         except (EmailNotFoundException, DataError, OperationalError) as e:
+            session.rollback()
+            raise e
+        finally:
+            session.close()
+    @classmethod
+    def is_email_exists(cls, email) -> bool:
+        """Check if an email exists in the database."""
+        session = get_session()
+        try:
+            result = session.execute(select(cls.email).where(cls.email == email)).first()
+            return True if result else False
+        except (DataError, IntegrityError, OperationalError, DatabaseError) as e:
             session.rollback()
             raise e
         finally:

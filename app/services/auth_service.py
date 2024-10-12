@@ -4,7 +4,7 @@
     Furthermore, it is also responsible for generating the session token.
     Additionally, it is also responsible for handling the exceptions
 """
-from os import urandom
+from os import urandom, getenv
 from datetime import datetime
 from base64 import urlsafe_b64encode
 from logging import getLogger
@@ -38,39 +38,43 @@ class AuthService:
             constrain on the database if the current data in question passed
         """
         try:
+            FRONT_END_VERIFY_EMAIL_URL = getenv('LOCAL_FRONTEND_URL') + getenv('API_VERIFY_EMAIL')
+            is_email_exists = Users.is_email_exists(user_data.get('email'))
+            if is_email_exists:
+                raise EmailAlreadyTaken('Email already taken.')
             salt = gensalt(rounds=16).decode('utf=8')
             hashed_password = hashpw(user_data.get('password').encode(
                 'utf-8'), salt.encode('utf-8')).decode('utf-8')
             email_verification_token = (urlsafe_b64encode(urandom(128))
                                         .decode('utf-8').rstrip('='))
-            is_email_exists = Profiles.email_exists(user_data.get('email'))
-            user_auth_data = {
+            email = user_data.get('email')
+            first_name = user_data.get('first_name')
+            last_name = user_data.get('last_name')
+            date_of_birth = user_data.get('date_of_birth')
+
+            new_user_data = {
                 'salt': salt,
                 'password': hashed_password,
-                'email_verification_token': email_verification_token
+                'verification_token': email_verification_token,
+                'verification_expiry': datetime.now(),
+                'verified_account': False,
+                'email': email,
+                'first_name': first_name,
+                'last_name': last_name,
+                'date_of_birth': date_of_birth,
+                'creation_date': datetime.now(),
+                'is_admin': user_data.get('is_admin')
             }
-            user_profile_data = {
-                'username': user_data.get('email').split('@')[0],
-                'email': user_data.get('email'),
-                'first_name': user_data.get('first_name').capitalize(),
-                'last_name': user_data.get('last_name').capitalize(),
-                'date_of_birth': user_data.get('date_of_birth'),
-                'account_creation_date': datetime.now(),
-                'email_verification_token': email_verification_token
-            }
-            if is_email_exists:
-                raise EmailAlreadyTaken('Email already taken.')
-            user_id = Users.create_new_user(user_auth_data)
-            user_profile_data['user_id'] = user_id
-            Profiles.add_new_profile_data(user_profile_data)
+
+            user_id = Users.create_new_user(new_user_data)
             message = render_template("auth/welcome.html",
-                                      verification_url=f"{Profiles.FRONT_END_VERIFY_EMAIL_URL}"
+                                      verification_url=f"{FRONT_END_VERIFY_EMAIL_URL}"
                                                        f"{email_verification_token}",
                                       user_name=user_data.get('first_name').capitalize())
             send_mail(message=message,
                       email=user_data.get('email'),
                       subject="VoteVoyage Onboarding 🎉")
-            return 'success'
+            return user_id
         except EmailAlreadyTaken as e:
             raise e
         except (IntegrityError, DataError, DatabaseError, OperationalError) as ex:
@@ -96,7 +100,6 @@ class AuthService:
                                                  user_password.encode('utf-8'))
             if not is_password_matched:
                 raise PasswordIncorrectException('Password incorrect.')
-            # Generate OTP and return a success message
             return Users.generate_otp(email)
         except (OperationalError, ValueError,
                 PasswordIncorrectException,
