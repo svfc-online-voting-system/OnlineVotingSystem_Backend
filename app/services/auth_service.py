@@ -22,24 +22,63 @@ from app.exception.authorization_exception import (EmailAlreadyTaken, EmailNotFo
                                                    PasswordResetLinkInvalidException,
                                                    AccountNotVerifiedException,
                                                    PasswordIncorrectException)
-from app.models.profiles import Profiles
-from app.models.users import Users
+
+from app.models.users import Users, UserOperations, OtpOperations, PasswordOperations, ForgotPasswordOperations, \
+    EmailVerificationOperations
+from app.routes.auth import forgot_password
 from app.utils.email_utility import send_mail
 
+FRONT_END_FORGOT_PASSWORD_URL = getenv(
+    'LOCAL_FRONTEND_URL') + '/reset-password/'
 logger = getLogger(__name__)
-
 
 class AuthService:
     """ This class is responsible for the authentication of the user. """
     @classmethod
     def register(cls, user_data):
-        """
-            This is the function responsible for checking necessary
-            constrain on the database if the current data in question passed
-        """
+        return UserRegistrationService.register_user(user_data)
+
+    @classmethod
+    def login(cls, email, plaintext_password):
+        return UserLoginService.login_user(email, plaintext_password)
+
+    @staticmethod
+    def verify_token():
+        return TokenVerificationService.verify_token()
+    
+    @staticmethod
+    def generate_otp(email):
+        return OTPService.generate_otp(email)
+
+    @staticmethod
+    def verify_otp(email, otp):
+        return OTPService.verify_otp(email, otp)
+
+    @staticmethod
+    def send_forgot_password_link(email):
+        return ForgotPasswordService.send_forgot_password_link(email)
+
+    @staticmethod
+    def verify_forgot_password_token(token, new_password):
+        return ForgotPasswordService.verify_forgot_password_token(token, new_password)
+
+    @staticmethod
+    def verify_email(token):
+        return EmailVerificationService.verify_email(token)
+
+    @staticmethod
+    def resend_email_verification(email):
+        return EmailVerificationService.resend_email_verification(email)
+
+
+class UserRegistrationService:
+    """ This class is responsible for the user registration service. """
+    @staticmethod
+    def register_user(user_data):
+        """This is the function responsible for registering the user."""
         try:
-            FRONT_END_VERIFY_EMAIL_URL = getenv('LOCAL_FRONTEND_URL') + getenv('API_VERIFY_EMAIL')
-            is_email_exists = Users.is_email_exists(user_data.get('email'))
+            front_end_verify_email_url = getenv('LOCAL_FRONTEND_URL') + getenv('API_VERIFY_EMAIL')
+            is_email_exists = UserOperations.is_email_exists(user_data.get('email'))
             if is_email_exists:
                 raise EmailAlreadyTaken('Email already taken.')
             salt = gensalt(rounds=16).decode('utf=8')
@@ -66,9 +105,9 @@ class AuthService:
                 'is_admin': user_data.get('is_admin')
             }
 
-            user_id = Users.create_new_user(new_user_data)
+            user_id = UserOperations.create_new_user(new_user_data)
             message = render_template("auth/welcome.html",
-                                      verification_url=f"{FRONT_END_VERIFY_EMAIL_URL}"
+                                      verification_url=f"{front_end_verify_email_url}"
                                                        f"{email_verification_token}",
                                       user_name=user_data.get('first_name').capitalize())
             send_mail(message=message,
@@ -79,41 +118,85 @@ class AuthService:
             raise e
         except (IntegrityError, DataError, DatabaseError, OperationalError) as ex:
             raise ex
-    @classmethod
-    def login(cls, email, plaintext_password):
-        """
-        This is for the login functionality. It checks first if the email
-        found on the database, throws EmailNotFound if not found, otherwise
-        proceed for checking the credentials.
-        """
+        
+
+class UserLoginService:
+    """ This class is responsible for the user login service. """
+    @staticmethod
+    def login_user(email, plaintext_password):  # pylint: disable=R0911
         try:
-            user_data = Users.login(email)
+            user_data = UserOperations.login(email)
             user_email = user_data.get('email')
             user_password = user_data.get('password')
             user_salt = user_data.get('salt')
-            is_verified = Users.is_email_verified(email)
+            is_verified = UserOperations.is_email_verified(email)
             if not is_verified:
                 raise AccountNotVerifiedException('Account not verified.')
             if user_email is None and user_password is None and user_salt is None:
                 raise EmailNotFoundException('Email not found.')
             is_password_matched = checkpw(plaintext_password.encode('utf-8'),
-                                                 user_password.encode('utf-8'))
+                                          user_password.encode('utf-8'))
             if not is_password_matched:
                 raise PasswordIncorrectException('Password incorrect.')
-            return Users.generate_otp(email)
+            seven_digit_otp, first_name = OtpOperations.generate_otp(email)
+            if not seven_digit_otp:
+                raise OperationalError('OTP not generated.')
+            otp_template = render_template("auth/one-time-password.html", otp=seven_digit_otp, user_name=first_name)
+            subject = "Your OTP Verification code"
+            send_mail(message=otp_template, email=email, subject=subject)
+            return 'success'
         except (OperationalError, ValueError,
                 PasswordIncorrectException,
                 EmailNotFoundException,
                 AccountNotVerifiedException) as e:
             raise e
+
+
+class PasswordService:
+    """ This class is responsible for the password service. """
     @staticmethod
-    def generate_csrf_token():
-        """This is the function responsible for generating the CSRF token."""
-        return generate_csrf()
+    def hash_password(password):
+        """This is the function responsible for hashing the password."""
+        return hashpw(password.encode('utf-8'), gensalt()).decode('utf-8')
     @staticmethod
-    def generate_session_token(email, user_id):
-        """Generate a session token during call as payload."""
-        return create_access_token(identity={'email': email, 'user_id': user_id})
+    def check_password(plaintext_password, hashed_password):
+        """This is the function responsible for checking the password."""
+        return checkpw(plaintext_password.encode('utf-8'), hashed_password.encode('utf-8'))
+    
+
+class OTPService:
+    """ This class is responsible for the OTP service. """
+    @staticmethod
+    def generate_otp():
+        """This is the function responsible for generating the OTP."""
+        return urlsafe_b64encode(urandom(128)).decode('utf-8').rstrip('=')
+    @staticmethod
+    def verify_otp(email, otp):
+        try:
+            if not email or not otp:
+                raise ValueError("Email and OTP are required.")
+            is_user_exists = UserOperations.is_email_exists(email)
+            if not is_user_exists:
+                raise EmailNotFoundException('Email not found.')
+            user_id = OTPService.verify_otp(email=email, otp=otp)
+            if user_id:
+                return SessionTokenService.generate_session_token(email, user_id), CSRFTokenService.generate_csrf_token()
+            return None
+        except (OperationalError, ValueError, OTPExpiredException, OTPIncorrectException,
+                EmailNotFoundException) as e:
+            raise e
+    
+
+class SendMailService:
+    """ This class is responsible for the send mail service. """
+    @staticmethod
+    def send_mail(message, email, subject):
+        """This is the function responsible for sending the mail."""
+        return send_mail(message=message, email=email, subject=subject)
+    
+
+class TokenVerificationService:
+    """ This class is responsible for the token verification service. """
     @staticmethod
     @jwt_required(locations=['cookies', 'headers'])
     def verify_token():
@@ -124,67 +207,54 @@ class AuthService:
             return {'code': 'success', 'message': 'JWT Identity verified.'}, 200
         except (ExpiredSignatureError, InvalidTokenError) as e:
             raise e
+    
+    
+class CSRFTokenService:
+    """ This class is responsible for the CSRF token service. """
     @staticmethod
-    def generate_otp(email):
-        """This is the function responsible for generating the OTP."""
-        try:
-            if not email:
-                raise ValueError("Email is required.")
-            return Users.generate_otp(email=email)
-        except (OperationalError, ValueError, EmailNotFoundException) as e:
-            raise e
-    def verify_otp(self, email, otp):
-        """This is the function responsible for verifying the OTP """
-        try:
-            if not email or not otp:
-                raise ValueError("Email and OTP are required.")
-            is_user_exists = Profiles.email_exists(email)
-            if not is_user_exists:
-                raise EmailNotFoundException('Email not found.')
-            user_id = Users.verify_otp(email=email, otp=otp)
-            if user_id:
-                return self.generate_session_token(email, user_id), self.generate_csrf_token()
-            return None
-        except (OperationalError, ValueError, OTPExpiredException, OTPIncorrectException,
-                EmailNotFoundException) as e:
-            raise e
+    def generate_csrf_token():
+        """This is the function responsible for generating the CSRF token."""
+        return generate_csrf()
+
+
+class SessionTokenService:
+    """ This class is responsible for the session token service. """
+    @staticmethod
+    def generate_session_token(email, user_id):
+        """This is the function responsible for generating the session token."""
+        return create_access_token(identity={'email': email, 'user_id': user_id})
+    
+    
+class ForgotPasswordService:
+    """ This class is responsible for the forgot password service. """
     @staticmethod
     def send_forgot_password_link(email):
-        """This is the function responsible for the forgot password."""
-        try:
-            if not email:
-                raise ValueError("Email is required.")
-            is_user_exists = Profiles.email_exists(email)
-            if not is_user_exists:
-                raise EmailNotFoundException('Email not found.')
-            return Users.send_forgot_password_link(email)
-        except (EmailNotFoundException, ValueError, OperationalError) as e:
-            raise e
+        """This is the function responsible for sending the forgot password link."""
+        reset_token, first_name = ForgotPasswordOperations.send_forgot_password_link(email)
+        reset_password_url = FRONT_END_FORGOT_PASSWORD_URL + reset_token
+        forgot_password_template = render_template("auth/forgot-password.html",
+                                                   reset_password_url=reset_password_url, user_name=first_name)
+        SendMailService.send_mail(email=email, subject="Reset Password", message=forgot_password_template)
     @staticmethod
     def verify_forgot_password_token(token, new_password):
         """This is the function responsible for verifying the forgot password token."""
-        try:
-            if not token or not new_password:
-                raise ValueError("Token and new password is required.")
-            return Users.verify_forgot_password_token(token, new_password)
-        except (PasswordResetExpiredException, PasswordResetLinkInvalidException,
-                ValueError, DataError, OperationalError) as e:
-            raise e
+        return PasswordOperations.verify_forgot_password_token(token, new_password)
+    
+
+class EmailVerificationService:
+    """ This class is responsible for the email verification service. """
     @staticmethod
     def verify_email(token):
         """This is the function responsible for verifying the email."""
-        try:
-            if not token:
-                raise ValueError("Email and token are required.")
-            return Users.verify_email(token)
-        except (ValueError, DataError, OperationalError) as e:
-            raise e
+        result = EmailVerificationOperations.verify_email(token)
+        if result != 'email_verified':
+            EmailVerificationService.resend_email_verification(email=result)
+        return result
     @staticmethod
     def resend_email_verification(email):
         """This is the function responsible for resending the email verification."""
-        try:
-            if not email:
-                raise ValueError("Email is required.")
-            return Users.resend_email_verification(email)
-        except (ValueError, EmailNotFoundException, DataError, OperationalError) as e:
-            raise e
+        verification_token, first_name = EmailVerificationOperations.resend_email_verification(email)
+        verification_url = getenv('LOCAL_FRONTEND_URL') + getenv('API_VERIFY_EMAIL') + verification_token
+        verification_template = render_template("auth/welcome.html",
+                                                verification_url=verification_url, user_name=first_name)
+        SendMailService.send_mail(email=email, subject="Verify your email", message=verification_template)
