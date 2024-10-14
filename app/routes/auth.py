@@ -164,6 +164,7 @@ def forgot_password():
     })
 
 @auth_blueprint.route(rule='/auth/otp-verification', methods=["POST"])
+@csrf.exempt
 def otp_verification() -> Response:
     """ Function for handling otp verification"""
     email = request.json.get('email')

@@ -31,7 +31,6 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.exc import IntegrityError, DataError, OperationalError, DatabaseError
 from sqlalchemy.sql import expression
 from sqlalchemy.sql.operators import or_
-from app.utils.email_utility import send_mail
 from app.utils.engine import get_session
 from app.exception.authorization_exception import (EmailNotFoundException, OTPExpiredException,
                                                    OTPIncorrectException,
@@ -54,20 +53,20 @@ class Users(Base):
     verification_expiry = Column(Date, nullable=True)
     username = Column(VARCHAR(length=45), unique=True, nullable=False)
     email = Column(VARCHAR(length=100), nullable=False)
-    first_name = Column(VARCHAR(length=100), nullable=False)
-    last_name = Column(VARCHAR(length=100), nullable=False)
+    firstname = Column(VARCHAR(length=100), nullable=False)
+    lastname = Column(VARCHAR(length=100), nullable=False)
     date_of_birth = Column(Date, nullable=False)
     creation_date = Column(Date, nullable=False)
     is_admin = Column(Boolean, default=expression.false(), nullable=False)
-    votes = relationship('Votes',
-                         back_populates='users',
-                         uselist=False, cascade="all, delete-orphan")
-    ballots = relationship("Ballots",
-                            back_populates="users", cascade="all, delete-orphan")
-    administrators = relationship("Administrators",
-                                    back_populates="users", cascade="all, delete-orphan")
-    poll_votes = relationship("PollVotes",
-                                back_populates="users", cascade="all, delete-orphan")
+    # votes = relationship('Votes',
+    #                      back_populates='users',
+    #                      uselist=False, cascade="all, delete-orphan")
+    # ballots = relationship("Ballots",
+    #                         back_populates="users", cascade="all, delete-orphan")
+    # administrators = relationship("Administrators",
+    #                                 back_populates="users", cascade="all, delete-orphan")
+    # poll_votes = relationship("PollVotes",
+    #                             back_populates="users", cascade="all, delete-orphan")
 
 class UserOperations:
     @staticmethod
@@ -79,14 +78,14 @@ class UserOperations:
                 salt=user_data.get("salt"),
                 hashed_password=user_data.get("password"),
                 verification_token=user_data.get("email_verification_token"),
-                verification_expiry=datetime.now() + timedelta(minutes=2880),
-                verified_account=False,
-                username=user_data.get("email").split('@')[0],
+                verification_expiry=user_data.get("email_verification_expiry"),
+                verified_account=user_data.get("verified_account"),
+                username=user_data.get("username"),
                 email=user_data.get("email"),
-                first_name=user_data.get("first_name").capitalize(),
-                last_name=user_data.get("last_name").capitalize(),
+                firstname=user_data.get("first_name").capitalize(),
+                lastname=user_data.get("last_name").capitalize(),
                 date_of_birth=user_data.get("date_of_birth"),
-                creation_date=datetime.now(),
+                creation_date=user_data.get("creation_date"),
                 is_admin=user_data.get("is_admin")
             )
             session.add(new_user)
@@ -218,7 +217,7 @@ class OtpOperations:
                 .where(Users.email == email)
                 .values(otp_secret=seven_digit_otp, otp_expiry=otp_expiry)
             )
-            get_name = select(Users.first_name).where(Users.email == email)
+            get_name = select(Users.firstname).where(Users.email == email)
             session.execute(query)
             session.commit()
             return seven_digit_otp, session.execute(get_name).first()[0]
@@ -232,12 +231,8 @@ class OtpOperations:
     def verify_otp(email, otp):
         session = get_session()
         try:
-            user_otp_query = session.execute(
-                select(Users.otp_secret, Users.otp_expiry)
-                .where(Users.email == email)
-            ).first()
-            user_otp_secret, user_otp_expiry = user_otp_query
-            session.execute(user_otp_query).first()
+            user_otp_secret, user_otp_expiry = session.execute(select(Users.otp_secret, Users.otp_expiry)
+                            .where(Users.email == email)).first()
             if user_otp_secret is None or user_otp_expiry is None:
                 raise OTPExpiredException("OTP has expired.")
             if user_otp_expiry < datetime.now():
@@ -249,7 +244,7 @@ class OtpOperations:
                 session.execute(query)
                 session.commit()
                 raise OTPExpiredException("OTP has expired.")
-            if int(user_otp_query[0]) != int(otp):
+            if int(user_otp_secret) != int(otp):
                 raise OTPIncorrectException("Incorrect OTP.")
             query = (
                 update(Users)
@@ -272,15 +267,11 @@ class EmailVerificationOperations:
         """ Function responsible for verifying the email."""
         session = get_session()
         try:
-            cleaned_token = urllib.parse.unquote(token).replace(" ", "+")
-            user = session.query(Users).filter(
-                or_(
-                    Users.verification_token == cleaned_token,
-                    Users.verification_token == token
-                )
-            ).first()
+            user = session.execute(
+                select(Users).where(Users.verification_token == token)
+            ).scalars().first()
             if user is None:
-                raise ValueError("Invalid token or email.")
+                raise ValueError("Invalid token.")
             if user.verification_expiry < datetime.now():
                 user.verification_token = None
                 user.verification_expiry = None
@@ -291,6 +282,7 @@ class EmailVerificationOperations:
             user.verification_token = None
             user.verification_expiry = None
             session.commit()
+            print("Email verified.")
             return 'email_verified'
         except Exception as e:
             session.rollback()
@@ -306,7 +298,7 @@ class EmailVerificationOperations:
         session = get_session()
         try:
             query_user_id_and_name = (
-                select(Users.user_id, Users.first_name)
+                select(Users.user_id, Users.firstname)
                 .where(Users.email == email)
             )
             user_id, first_name = session.execute(query_user_id_and_name)
@@ -338,7 +330,7 @@ class ForgotPasswordOperations:
         """
         session = get_session()
         try:
-            user_id, first_name = session.query(Users.user_id, Users.first_name).filter(
+            user_id, first_name = session.query(Users.user_id, Users.firstname).filter(
                 Users.email == email
             ).first()
             if user_id is None:

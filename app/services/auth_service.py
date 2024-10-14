@@ -5,7 +5,7 @@
     Additionally, it is also responsible for handling the exceptions
 """
 from os import urandom, getenv
-from datetime import datetime
+from datetime import datetime, timedelta
 from base64 import urlsafe_b64encode
 from logging import getLogger
 from flask import render_template
@@ -23,9 +23,8 @@ from app.exception.authorization_exception import (EmailAlreadyTaken, EmailNotFo
                                                    AccountNotVerifiedException,
                                                    PasswordIncorrectException)
 
-from app.models.users import Users, UserOperations, OtpOperations, PasswordOperations, ForgotPasswordOperations, \
+from app.models.users import UserOperations, OtpOperations, PasswordOperations, ForgotPasswordOperations, \
     EmailVerificationOperations
-from app.routes.auth import forgot_password
 from app.utils.email_utility import send_mail
 
 FRONT_END_FORGOT_PASSWORD_URL = getenv(
@@ -94,9 +93,10 @@ class UserRegistrationService:
             new_user_data = {
                 'salt': salt,
                 'password': hashed_password,
-                'verification_token': email_verification_token,
-                'verification_expiry': datetime.now(),
+                'email_verification_token': email_verification_token,
+                'email_verification_expiry': datetime.now() + timedelta(days=2),
                 'verified_account': False,
+                'username': email.split('@')[0],
                 'email': email,
                 'first_name': first_name,
                 'last_name': last_name,
@@ -178,7 +178,7 @@ class OTPService:
             is_user_exists = UserOperations.is_email_exists(email)
             if not is_user_exists:
                 raise EmailNotFoundException('Email not found.')
-            user_id = OTPService.verify_otp(email=email, otp=otp)
+            user_id = OtpOperations.verify_otp(email=email, otp=otp)
             if user_id:
                 return SessionTokenService.generate_session_token(email, user_id), CSRFTokenService.generate_csrf_token()
             return None

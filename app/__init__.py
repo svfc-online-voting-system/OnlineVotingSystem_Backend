@@ -15,7 +15,6 @@ from os import getenv, makedirs, path
 
 from flask import Flask
 from flask_jwt_extended import JWTManager
-# app/__init__.py
 from logging import FileHandler, StreamHandler, basicConfig, getLogger, INFO
 
 from app.extension import mail, csrf
@@ -26,7 +25,7 @@ def create_app():
     """Factory function to create the Flask app instance."""
     app = Flask(__name__, template_folder='templates')
     app.config['JWT_SECRET_KEY'] = getenv('JWT_SECRET_KEY')
-    app.config['WTF_CSRF_SECRET_KEY'] = getenv('WTF_CSRF_SECRET_KEY')
+    app.config['SECRET_KEY'] = getenv('SECRET_KEY')
     app.config['JWT_ACCESS_COOKIE_NAME'] = 'Authorization'
     app.config['WTF_CSRF_ENABLED'] = True
     JWTManager(app)
