@@ -20,17 +20,14 @@
 """
 import base64
 import hashlib
-import urllib.parse
 from datetime import datetime, timedelta
 from os import getenv, urandom
 import time
 import bcrypt
 import pyotp
 from sqlalchemy import Column, Integer, Date, select, update, Boolean, VARCHAR
-from sqlalchemy.orm import relationship
 from sqlalchemy.exc import IntegrityError, DataError, OperationalError, DatabaseError
 from sqlalchemy.sql import expression
-from sqlalchemy.sql.operators import or_
 from app.utils.engine import get_session
 from app.exception.authorization_exception import (EmailNotFoundException, OTPExpiredException,
                                                    OTPIncorrectException,
@@ -38,7 +35,7 @@ from app.exception.authorization_exception import (EmailNotFoundException, OTPEx
                                                    PasswordResetLinkInvalidException)
 from app.models.base import Base
 
-class Users(Base):
+class Users(Base):  # pylint: disable=R0903
     """Class representing a User in the database."""
     __tablename__ = 'users'
     user_id = Column(Integer, primary_key=True, autoincrement=True)
@@ -63,15 +60,13 @@ class Users(Base):
     #                      uselist=False, cascade="all, delete-orphan")
     # ballots = relationship("Ballots",
     #                         back_populates="users", cascade="all, delete-orphan")
-    # administrators = relationship("Administrators",
-    #                                 back_populates="users", cascade="all, delete-orphan")
     # poll_votes = relationship("PollVotes",
     #                             back_populates="users", cascade="all, delete-orphan")
 
 class UserOperations:
+    """ Class responsible for operation like creating a new user, login, etc. """
     @staticmethod
-    def create_new_user(user_data: dict):
-        """ Responsible for inserting new user data into the database."""
+    def create_new_user(user_data: dict):  # pylint: disable=C0116
         session = get_session()
         try:
             new_user = Users(
@@ -98,9 +93,7 @@ class UserOperations:
             session.close()
     
     @staticmethod
-    def login(email):
-        """ Responsible for logging in a user."""
-        """Login a user."""
+    def login(email):  # pylint: disable=C0116
         session = get_session()
         try:
             user_with_profile_stmt = (
@@ -126,8 +119,7 @@ class UserOperations:
             session.close()
         
     @staticmethod
-    def is_email_verified(email):
-        """ Responsible for checking if the email is verified."""
+    def is_email_verified(email):  # pylint: disable=C0116
         session = get_session()
         try:
             user = session.query(Users.verified_account).filter(Users.email == email).first()
@@ -139,8 +131,7 @@ class UserOperations:
             session.close()
     
     @staticmethod
-    def is_email_exists(email):
-        """ Responsible for checking if the email exists."""
+    def is_email_exists(email):  # pylint: disable=C0116
         session = get_session()
         try:
             user = session.query(Users.email).filter(Users.email == email).first()
@@ -152,8 +143,9 @@ class UserOperations:
             session.close()
 
 class PasswordOperations:
+    """ Class responsible for password operations like hashing, verifying, etc. """
     @staticmethod
-    def verify_forgot_password_token(reset_token, new_password):
+    def verify_forgot_password_token(reset_token, new_password):  # pylint: disable=C0116
         session = get_session()
         try:
             user = session.execute(select(Users.user_id, Users.reset_expiry)
@@ -181,7 +173,7 @@ class PasswordOperations:
             session.close()
     
     @staticmethod
-    def password_reset(new_password, user_id):
+    def password_reset(new_password, user_id):  # pylint: disable=C0116
         session = get_session()
         try:
             salt = bcrypt.gensalt(rounds=16).decode('utf=8')
@@ -202,9 +194,9 @@ class PasswordOperations:
             session.close()
 
 class OtpOperations:
+    """ Class responsible for OTP operations like generating, verifying, etc. """
     @staticmethod
-    def generate_otp(email):
-        """ Responsible for generating OTP Code."""
+    def generate_otp(email):  # pylint: disable=C0116
         session = get_session()
         try:
             seed = f"{getenv('TOTP_SECRET_KEY')}{int(time.time())}"
@@ -228,7 +220,7 @@ class OtpOperations:
             session.close()
             
     @staticmethod
-    def verify_otp(email, otp):
+    def verify_otp(email, otp):  # pylint: disable=C0116
         session = get_session()
         try:
             user_otp_secret, user_otp_expiry = session.execute(select(Users.otp_secret, Users.otp_expiry)
@@ -262,9 +254,9 @@ class OtpOperations:
             session.close()
 
 class EmailVerificationOperations:
+    """ Class responsible for email verification operations like verifying, resending, etc. """
     @staticmethod
-    def verify_email(token):
-        """ Function responsible for verifying the email."""
+    def verify_email(token):  # pylint: disable=C0116
         session = get_session()
         try:
             user = session.execute(
@@ -291,10 +283,7 @@ class EmailVerificationOperations:
             session.close()
     
     @staticmethod
-    def resend_email_verification(email):
-        """
-        Function responsible for resending the email verification link.
-        """
+    def resend_email_verification(email):  # pylint: disable=C0116
         session = get_session()
         try:
             query_user_id_and_name = (
@@ -322,24 +311,23 @@ class EmailVerificationOperations:
         finally:
             session.close()
 
-class ForgotPasswordOperations:
+class ForgotPasswordOperations:  # pylint: disable=R0903
+    """ Class responsible for forgot password operations like sending reset link, verifying, etc. """
     @staticmethod
-    def send_forgot_password_link(email):
-        """
-        Function responsible for sending the forgot password link.
-        """
+    def send_forgot_password_link(email):  # pylint: disable=C0116
         session = get_session()
         try:
-            user_id, first_name = session.query(Users.user_id, Users.firstname).filter(
-                Users.email == email
+            user_id, first_name = session.execute(
+                select(Users.user_id, Users.firstname)
+                .where(Users.email == email)
             ).first()
             if user_id is None:
                 raise EmailNotFoundException("Email not found.")
-            reset_token = base64.b64encode(urandom(24)).decode('utf-8')
-            reset_expiry = datetime.now() + timedelta(minutes=2880)
+            reset_token = base64.b64encode(urandom(128)).decode('utf-8')
+            reset_expiry = datetime.now() + timedelta(minutes=60)
             query = (
                 update(Users)
-                .where(Users.user_id == user_id[0])
+                .where(Users.user_id == user_id)
                 .values(reset_token=reset_token, reset_expiry=reset_expiry)
             )
             session.execute(query)

@@ -18,11 +18,8 @@ from sqlalchemy.exc import DataError, IntegrityError, DatabaseError, Operational
 from app.exception.authorization_exception import (EmailAlreadyTaken, EmailNotFoundException,
                                                    OTPExpiredException,
                                                    OTPIncorrectException,
-                                                   PasswordResetExpiredException,
-                                                   PasswordResetLinkInvalidException,
                                                    AccountNotVerifiedException,
                                                    PasswordIncorrectException)
-
 from app.models.users import UserOperations, OtpOperations, PasswordOperations, ForgotPasswordOperations, \
     EmailVerificationOperations
 from app.utils.email_utility import send_mail
@@ -34,47 +31,45 @@ logger = getLogger(__name__)
 class AuthService:
     """ This class is responsible for the authentication of the user. """
     @classmethod
-    def register(cls, user_data):
+    def register(cls, user_data): # pylint: disable=C0116
         return UserRegistrationService.register_user(user_data)
 
     @classmethod
-    def login(cls, email, plaintext_password):
+    def login(cls, email, plaintext_password):  # pylint: disable=C0116
         return UserLoginService.login_user(email, plaintext_password)
 
     @staticmethod
-    def verify_token():
+    def verify_token():  # pylint: disable=C0116
         return TokenVerificationService.verify_token()
-    
+
     @staticmethod
-    def generate_otp(email):
+    def generate_otp(email):  # pylint: disable=C0116
         return OTPService.generate_otp(email)
 
     @staticmethod
-    def verify_otp(email, otp):
+    def verify_otp(email, otp):  # pylint: disable=C0116
         return OTPService.verify_otp(email, otp)
 
     @staticmethod
-    def send_forgot_password_link(email):
+    def send_forgot_password_link(email):  # pylint: disable=C0116
         return ForgotPasswordService.send_forgot_password_link(email)
 
     @staticmethod
-    def verify_forgot_password_token(token, new_password):
+    def verify_forgot_password_token(token, new_password):  # pylint: disable=C0116
         return ForgotPasswordService.verify_forgot_password_token(token, new_password)
 
     @staticmethod
-    def verify_email(token):
+    def verify_email(token):  # pylint: disable=C0116
         return EmailVerificationService.verify_email(token)
 
     @staticmethod
-    def resend_email_verification(email):
+    def resend_email_verification(email):  # pylint: disable=C0116
         return EmailVerificationService.resend_email_verification(email)
 
-
-class UserRegistrationService:
+class UserRegistrationService:  # pylint: disable=R0903
     """ This class is responsible for the user registration service. """
     @staticmethod
-    def register_user(user_data):
-        """This is the function responsible for registering the user."""
+    def register_user(user_data):  # pylint: disable=C0116
         try:
             front_end_verify_email_url = getenv('LOCAL_FRONTEND_URL') + getenv('API_VERIFY_EMAIL')
             is_email_exists = UserOperations.is_email_exists(user_data.get('email'))
@@ -118,12 +113,11 @@ class UserRegistrationService:
             raise e
         except (IntegrityError, DataError, DatabaseError, OperationalError) as ex:
             raise ex
-        
 
-class UserLoginService:
+class UserLoginService:  # pylint: disable=R0903
     """ This class is responsible for the user login service. """
     @staticmethod
-    def login_user(email, plaintext_password):  # pylint: disable=R0911
+    def login_user(email, plaintext_password):  # pylint: disable=C0116
         try:
             user_data = UserOperations.login(email)
             user_email = user_data.get('email')
@@ -138,21 +132,17 @@ class UserLoginService:
                                           user_password.encode('utf-8'))
             if not is_password_matched:
                 raise PasswordIncorrectException('Password incorrect.')
-            seven_digit_otp, first_name = OtpOperations.generate_otp(email)
-            if not seven_digit_otp:
-                raise OperationalError('OTP not generated.')
-            otp_template = render_template("auth/one-time-password.html", otp=seven_digit_otp, user_name=first_name)
-            subject = "Your OTP Verification code"
-            send_mail(message=otp_template, email=email, subject=subject)
-            return 'success'
+            result = OTPService.generate_otp(email)
+            if result == 'success':
+                return 'success'
+            return None
         except (OperationalError, ValueError,
                 PasswordIncorrectException,
                 EmailNotFoundException,
                 AccountNotVerifiedException) as e:
             raise e
 
-
-class PasswordService:
+class PasswordService:  # pylint: disable=R0903
     """ This class is responsible for the password service. """
     @staticmethod
     def hash_password(password):
@@ -162,16 +152,24 @@ class PasswordService:
     def check_password(plaintext_password, hashed_password):
         """This is the function responsible for checking the password."""
         return checkpw(plaintext_password.encode('utf-8'), hashed_password.encode('utf-8'))
-    
 
-class OTPService:
+class OTPService:  # pylint: disable=R0903
     """ This class is responsible for the OTP service. """
     @staticmethod
-    def generate_otp():
-        """This is the function responsible for generating the OTP."""
-        return urlsafe_b64encode(urandom(128)).decode('utf-8').rstrip('=')
+    def generate_otp(email):  # pylint: disable=C0116
+        try:
+            seven_digit_otp, first_name = OtpOperations.generate_otp(email)
+            if not seven_digit_otp:
+                raise OperationalError
+            otp_template = render_template("auth/one-time-password.html",
+                                           otp=seven_digit_otp, user_name=first_name)
+            subject = "Your OTP Verification code"
+            send_mail(message=otp_template, email=email, subject=subject)
+            return 'success'
+        except (OperationalError, ValueError, EmailNotFoundException) as e:
+            raise e
     @staticmethod
-    def verify_otp(email, otp):
+    def verify_otp(email, otp):  # pylint: disable=C0116
         try:
             if not email or not otp:
                 raise ValueError("Email and OTP are required.")
@@ -180,51 +178,46 @@ class OTPService:
                 raise EmailNotFoundException('Email not found.')
             user_id = OtpOperations.verify_otp(email=email, otp=otp)
             if user_id:
-                return SessionTokenService.generate_session_token(email, user_id), CSRFTokenService.generate_csrf_token()
+                return (SessionTokenService
+                        .generate_session_token(email, user_id), CSRFTokenService
+                        .generate_csrf_token())
             return None
         except (OperationalError, ValueError, OTPExpiredException, OTPIncorrectException,
                 EmailNotFoundException) as e:
             raise e
-    
 
-class SendMailService:
+class SendMailService:  # pylint: disable=R0903
     """ This class is responsible for the send mail service. """
     @staticmethod
-    def send_mail(message, email, subject):
-        """This is the function responsible for sending the mail."""
+    def send_mail(message, email, subject):  # pylint: disable=C0116
         return send_mail(message=message, email=email, subject=subject)
-    
 
-class TokenVerificationService:
+class TokenVerificationService:  # pylint: disable=R0903
     """ This class is responsible for the token verification service. """
     @staticmethod
     @jwt_required(locations=['cookies', 'headers'])
-    def verify_token():
-        """This is the function responsible for verifying the token."""
+    def verify_token():  # pylint: disable=C0116
         try:
             jwt_identity = get_jwt_identity()
             logger.info("JWT Identity verified for user: %s", jwt_identity)
             return {'code': 'success', 'message': 'JWT Identity verified.'}, 200
         except (ExpiredSignatureError, InvalidTokenError) as e:
             raise e
-    
-    
-class CSRFTokenService:
+
+class CSRFTokenService:  # pylint: disable=R0903
     """ This class is responsible for the CSRF token service. """
     @staticmethod
     def generate_csrf_token():
         """This is the function responsible for generating the CSRF token."""
         return generate_csrf()
 
-
-class SessionTokenService:
+class SessionTokenService:  # pylint: disable=R0903
     """ This class is responsible for the session token service. """
     @staticmethod
     def generate_session_token(email, user_id):
         """This is the function responsible for generating the session token."""
         return create_access_token(identity={'email': email, 'user_id': user_id})
-    
-    
+
 class ForgotPasswordService:
     """ This class is responsible for the forgot password service. """
     @staticmethod
@@ -235,11 +228,11 @@ class ForgotPasswordService:
         forgot_password_template = render_template("auth/forgot-password.html",
                                                    reset_password_url=reset_password_url, user_name=first_name)
         SendMailService.send_mail(email=email, subject="Reset Password", message=forgot_password_template)
+        return 'success'
     @staticmethod
     def verify_forgot_password_token(token, new_password):
         """This is the function responsible for verifying the forgot password token."""
         return PasswordOperations.verify_forgot_password_token(token, new_password)
-    
 
 class EmailVerificationService:
     """ This class is responsible for the email verification service. """
