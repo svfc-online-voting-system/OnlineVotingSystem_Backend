@@ -24,8 +24,7 @@ from app.models.users import UserOperations, OtpOperations, PasswordOperations, 
     EmailVerificationOperations
 from app.utils.email_utility import send_mail
 
-FRONT_END_FORGOT_PASSWORD_URL = getenv(
-    'LOCAL_FRONTEND_URL') + '/reset-password/'
+
 logger = getLogger(__name__)
 
 class AuthService:
@@ -71,7 +70,7 @@ class UserRegistrationService:  # pylint: disable=R0903
     @staticmethod
     def register_user(user_data):  # pylint: disable=C0116
         try:
-            front_end_verify_email_url = getenv('LOCAL_FRONTEND_URL') + getenv('API_VERIFY_EMAIL')
+            front_end_verify_email_url = getenv('LOCAL_FRONTEND_URL') + 'auth/verify-email/'
             is_email_exists = UserOperations.is_email_exists(user_data.get('email'))
             if is_email_exists:
                 raise EmailAlreadyTaken('Email already taken.')
@@ -222,9 +221,11 @@ class ForgotPasswordService:
     """ This class is responsible for the forgot password service. """
     @staticmethod
     def send_forgot_password_link(email):
+        front_end_forgot_password_url = getenv(
+            'LOCAL_FRONTEND_URL') + '/reset-password/'
         """This is the function responsible for sending the forgot password link."""
         reset_token, first_name = ForgotPasswordOperations.send_forgot_password_link(email)
-        reset_password_url = FRONT_END_FORGOT_PASSWORD_URL + reset_token
+        reset_password_url = front_end_forgot_password_url + reset_token
         forgot_password_template = render_template("auth/forgot-password.html",
                                                    reset_password_url=reset_password_url, user_name=first_name)
         SendMailService.send_mail(email=email, subject="Reset Password", message=forgot_password_template)

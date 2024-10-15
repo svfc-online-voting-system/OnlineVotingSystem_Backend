@@ -1,7 +1,9 @@
+""" This module contains error handlers for the application. """
 from logging import getLogger
 from os import getenv
 from sqlalchemy.exc import DataError, IntegrityError, DatabaseError, OperationalError
 from marshmallow import ValidationError
+from flask_jwt_extended.exceptions import NoAuthorizationError, InvalidHeaderError, WrongTokenError, JWTDecodeError, UserClaimsVerificationError
 from app.exception.authorization_exception import (EmailNotFoundException, OTPExpiredException,
                                                    OTPIncorrectException,
                                                    PasswordResetExpiredException,
@@ -141,5 +143,55 @@ def handle_email_already_taken(error):
         return set_response(400, {
             'code': 'email_already_taken',
             'message': 'Email already taken.'
+        })
+    raise error
+
+def handle_no_authorization_error(error):
+    """ This function handles no authorization errors. """
+    if isinstance(error, NoAuthorizationError):
+        logger.error("No authorization error: %s", error)
+        return set_response(401, {
+            'code': 'no_authorization',
+            'message': 'No authorization header provided.'
+        })
+    raise error
+
+def handle_invalid_header_error(error):
+    """ This function handles invalid header errors. """
+    if isinstance(error, InvalidHeaderError):
+        logger.error("Invalid header error: %s", error)
+        return set_response(401, {
+            'code': 'invalid_header',
+            'message': 'Invalid authorization header.'
+        })
+    raise error
+
+def handle_wrong_token_error(error):
+    """ This function handles wrong token errors. """
+    if isinstance(error, WrongTokenError):
+        logger.error("Wrong token error: %s", error)
+        return set_response(401, {
+            'code': 'wrong_token',
+            'message': 'Invalid token.'
+        })
+    raise error
+
+def handle_jwt_decode_error(error):
+    """ This function handles JWT decode errors. """
+    if isinstance(error, JWTDecodeError):
+        logger.error("JWT decode error: %s", error)
+        return set_response(401, {
+            'code': 'jwt_decode_error',
+            'message': 'Invalid token.'
+        })
+    raise error
+
+def handle_user_claims_verification_error(error):
+    """ This function handles user claims verification errors. """
+    if isinstance(error, UserClaimsVerificationError):
+        logger.error("User claims verification error: %s", error)
+        return set_response(401, {
+            'code': 'user_claims_verification_error',
+            'message': 'Invalid token.'
         })
     raise error

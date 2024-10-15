@@ -1,6 +1,6 @@
 """ This module contains the routes for the authentication of users. """
 from logging import getLogger
-from flask import Blueprint, request, Response, make_response
+from flask import Blueprint, request, Response, make_response, jsonify
 from jwt import ExpiredSignatureError, InvalidTokenError
 from marshmallow import ValidationError
 from app.extension import csrf
@@ -11,6 +11,7 @@ from app.exception.authorization_exception import (EmailNotFoundException, OTPEx
                                                    EmailAlreadyTaken,
                                                    PasswordIncorrectException,
                                                    AccountNotVerifiedException)
+from flask_jwt_extended.exceptions import NoAuthorizationError
 from app.schemas.auth_forms_schema import SignUpSchema, LoginSchema
 from app.services.auth_service import AuthService
 from app.utils.error_handlers import (handle_account_not_verified_exception, handle_general_exception,
@@ -18,7 +19,8 @@ from app.utils.error_handlers import (handle_account_not_verified_exception, han
                                       handle_otp_expired_exception, handle_email_not_found,
                                       handle_password_reset_expired_exception,
                                       handle_password_reset_link_invalid_exception, handle_email_already_taken,
-                                      handle_value_error, handle_database_errors, handle_validation_error)
+                                      handle_value_error, handle_database_errors, handle_validation_error,
+                                      handle_no_authorization_error)
 from app.utils.response_utils import set_response
 
 logger = getLogger(name=__name__)
@@ -40,6 +42,7 @@ auth_blueprint.register_error_handler(PasswordResetExpiredException,
                                       handle_password_reset_expired_exception)
 auth_blueprint.register_error_handler(PasswordResetLinkInvalidException,
                                       handle_password_reset_link_invalid_exception)
+auth_blueprint.register_error_handler(NoAuthorizationError, handle_no_authorization_error)
 auth_blueprint.register_error_handler(Exception, handle_general_exception)
 
 @auth_blueprint.route(rule='/auth/create-account', methods=['POST'])
@@ -90,16 +93,22 @@ def login() -> Response:
     if authentication_result == 'invalid_credentials':
         raise PasswordIncorrectException('Invalid credentials')
     return set_response(200, {
-        'code': 'success',
+        'code': 'otp_sent',
         'message': "OTP has been sent to your email."
     })
 
 @auth_blueprint.route(rule='/auth/logout', methods=['POST'])
 def logout() -> Response:
     """ This is the route for logging out. """
-    response = make_response({'code': 'success', 'message': 'Logout Successful'}, 200)
-    response.delete_cookie('Authorization')
-    response.delete_cookie('X-CSRF-TOKEN')
+    response = make_response()
+    response.delete_cookie('Authorization', secure=True, samesite='None', path='/', httponly=True)
+    response.delete_cookie('X-CSRFToken',   secure=True, samesite='None', path='/', httponly=True)
+    response.delete_cookie('session', secure=True, samesite='None', path='/', httponly=True)
+    res_body = jsonify({
+        'code': 'success',
+        'message': 'Logged out successfully.'
+    })
+    response.data = res_body
     return response
 
 @auth_blueprint.route(rule='/auth/verify-jwt-identity', methods=['GET'])
@@ -168,7 +177,7 @@ def forgot_password():
 def otp_verification() -> Response:
     """ Function for handling otp verification"""
     email = request.json.get('email')
-    otp = request.json.get('otp_code')
+    otp = str(request.json.get('otp_code'))
     if not email or not otp or len(otp) != 7 or not otp.isdigit():
         raise ValueError('Invalid data format')
     auth_service_otp = AuthService()

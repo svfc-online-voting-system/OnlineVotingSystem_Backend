@@ -6,7 +6,7 @@ from flask_cors import CORS
 from werkzeug.serving import run_simple
 from app import create_app
 
-load_dotenv()
+load_dotenv(dotenv_path='.env')
 
 def create_ssl_context():
     """ This function creates an SSL context for the Flask app. """
@@ -18,7 +18,8 @@ def create_ssl_context():
     return ssl_context
 
 app = create_app()
-CORS(app, supports_credentials=True, origins=[getenv('LOCAL_FRONTEND_URL'), getenv('LIVE_FRONTEND_URL')])
+# origin = getenv('ENVIRONMENT') == 'production' and str(getenv('LIVE_FRONTEND_URL')) or str(getenv('LOCAL_FRONTEND_URL'))
+CORS(app, supports_credentials=True, origins=['https://localhost:4200'])
 
 configured_ssl_context = create_ssl_context()
 
@@ -27,6 +28,7 @@ if __name__ == '__main__':
         'localhost',
         5000,
         app,
+        threaded=True,
         ssl_context=configured_ssl_context,
         use_reloader=True,
         use_debugger=True

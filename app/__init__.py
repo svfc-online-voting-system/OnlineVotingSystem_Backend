@@ -12,22 +12,23 @@ Returns:
 
 
 from os import getenv, makedirs, path
-
+from logging import FileHandler, StreamHandler, basicConfig, getLogger, INFO
 from flask import Flask
 from flask_jwt_extended import JWTManager
-from logging import FileHandler, StreamHandler, basicConfig, getLogger, INFO
-
 from app.extension import mail, csrf
 from app.routes.auth import auth_blueprint
 
 
 def create_app():
     """Factory function to create the Flask app instance."""
-    app = Flask(__name__, template_folder='templates')
+    base_dir = path.abspath(path.dirname(__file__))
+    template_dir = path.join(base_dir, 'templates')
+    app = Flask(__name__, template_folder=template_dir)
     app.config['JWT_SECRET_KEY'] = getenv('JWT_SECRET_KEY')
     app.config['SECRET_KEY'] = getenv('SECRET_KEY')
     app.config['JWT_ACCESS_COOKIE_NAME'] = 'Authorization'
     app.config['WTF_CSRF_ENABLED'] = True
+    app.config['WTF_CSRF_HEADERS'] = 'X-CSRF-TOKEN'
     JWTManager(app)
     csrf.init_app(app)
     app.config['MAIL_SERVER'] = getenv('MAIL_SERVER')

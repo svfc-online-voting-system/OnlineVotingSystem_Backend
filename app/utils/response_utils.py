@@ -8,6 +8,7 @@ is_production = ENVIRONMENT == 'production'
 
 def set_response(status_code, messages, **kwargs):
     """ This function sets the response for the routes. """
+    path: str = ''
     response = make_response(jsonify(messages), status_code)
     response.headers['Content-Type'] = 'application/json'
     response.headers['Date'] = f"{datetime.now()}"
@@ -16,6 +17,12 @@ def set_response(status_code, messages, **kwargs):
     response.headers['Access-Control-Allow-Credentials'] = 'true'
     response.headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS, GET, DELETE, PUT'
     response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+    # TODO: To be implemented later or in the future
+    # if 'role' in kwargs:
+    #     if kwargs['role'] == 'admin':
+    #         path = '/admin'
+    #     else:
+    #         path = '/user'
     # CodeQL false positive: py/insecure-cookie
     # We are intentionally setting SameSite=None to allow cross-origin requests.
     # This is necessary for our application architecture where the frontend and backend
@@ -27,8 +34,8 @@ def set_response(status_code, messages, **kwargs):
         'httponly': True,
         'secure': True,
         'samesite': 'None',
-        'path': '/',
-        'domain': getenv('COOKIE_DOMAIN')
+        # 'path': path,
+        'path': '/'
     }
     if 'authorization_token' in kwargs:
         response.set_cookie(
@@ -39,7 +46,7 @@ def set_response(status_code, messages, **kwargs):
         )
     if 'csrf_token' in kwargs:
         response.set_cookie(
-            key='X-CSRF-TOKEN',
+            key='X-CSRFToken',
             value=kwargs['csrf_token'],
             **cookie_options
         )
