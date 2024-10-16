@@ -1,0 +1,15 @@
+[MASTER]
+# Specify a configuration file.
+rcfile=.pylintrc
+
+[FORMAT]
+# Allow at least one blank line between methods in a class
+method-rgx=^([a-z_][a-z0-9_]{2,30}|[A-Z][a-zA-Z0-9]+)$
+# Allow at least one blank line between class definitions
+class-rgx=^([a-z_][a-z0-9_]{2,30}|[A-Z][a-zA-Z0-9]+)$
+# Maximum number of characters on a single line.
+max-line-length=120
+
+[MESSAGES CONTROL]
+# Disable the message, report, category or checker with the given id(s).
+disable=C0303
