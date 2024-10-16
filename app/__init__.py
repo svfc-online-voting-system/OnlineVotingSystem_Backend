@@ -27,8 +27,12 @@ def create_app():
     app.config['JWT_SECRET_KEY'] = getenv('JWT_SECRET_KEY')
     app.config['SECRET_KEY'] = getenv('SECRET_KEY')
     app.config['JWT_ACCESS_COOKIE_NAME'] = 'Authorization'
-    app.config['WTF_CSRF_ENABLED'] = True
-    app.config['WTF_CSRF_HEADERS'] = 'X-CSRF-TOKEN'
+    app.config['CSRF_HEADER_NAME'] = 'X-CSRF-TOKEN'
+    app.config['CSRF_COOKIE_HTTPONLY'] = True
+    app.config['CSRF_COOKIE_SECURE'] = True
+    app.config['CSRF_COOKIE_SAMESITE'] = 'None'
+    app.config['CSRF_COOKIE_NAME'] = 'X-CSRF-TOKEN'
+    csrf.init_app(app)
     JWTManager(app)
     csrf.init_app(app)
     app.config['MAIL_SERVER'] = getenv('MAIL_SERVER')
