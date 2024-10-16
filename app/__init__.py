@@ -16,7 +16,7 @@ import logging
 import os
 from flask import Flask
 from flask_jwt_extended import JWTManager
-from app.extension import mail
+from app.extension import mail, csrf
 from app.routes.auth import auth_blueprint
 
 
@@ -25,6 +25,12 @@ def create_app():
     app = Flask(__name__, template_folder='templates')
     app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY', 'default-secret-key')
     app.config['JWT_ACCESS_COOKIE_NAME'] = 'Authorization'
+    app.config['CSRF_HEADER_NAME'] = 'X-CSRF-TOKEN'
+    app.config['CSRF_COOKIE_HTTPONLY'] = True
+    app.config['CSRF_COOKIE_SECURE'] = True
+    app.config['CSRF_COOKIE_SAMESITE'] = 'None'
+    app.config['CSRF_COOKIE_NAME'] = 'X-CSRF-TOKEN'
+    csrf.init_app(app)
     JWTManager(app)
     app.config['MAIL_SERVER'] = os.getenv('MAIL_SERVER')
     app.config['MAIL_PORT'] = os.getenv('MAIL_PORT')
