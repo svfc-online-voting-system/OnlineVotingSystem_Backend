@@ -8,7 +8,6 @@ is_production = ENVIRONMENT == 'production'
 
 def set_response(status_code, messages, **kwargs):
     """ This function sets the response for the routes. """
-    path: str = ''
     response = make_response(jsonify(messages), status_code)
     response.headers['Content-Type'] = 'application/json'
     response.headers['Date'] = f"{datetime.now()}"
@@ -17,6 +16,7 @@ def set_response(status_code, messages, **kwargs):
     response.headers['Access-Control-Allow-Credentials'] = 'true'
     response.headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS, GET, DELETE, PUT'
     response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+    path = '/'
     # TODO: To be implemented later or in the future
     # if 'role' in kwargs:
     #     if kwargs['role'] == 'admin':
@@ -34,8 +34,7 @@ def set_response(status_code, messages, **kwargs):
         'httponly': True,
         'secure': True,
         'samesite': 'None',
-        # 'path': path,
-        'path': '/'
+        'path': path,
     }
     if 'authorization_token' in kwargs:
         response.set_cookie(
@@ -50,6 +49,10 @@ def set_response(status_code, messages, **kwargs):
             value=kwargs['csrf_token'],
             **cookie_options
         )
+    if 'action' in kwargs and kwargs['action'] == 'logout':
+        response.delete_cookie('Authorization', secure=True, samesite='None', path='/', httponly=True)
+        response.delete_cookie('X-CSRFToken',   secure=True, samesite='None', path='/', httponly=True)
+        response.delete_cookie('session', secure=True, samesite='None', path='/', httponly=True)
     response_data = json.dumps(messages)
     response.data = response_data
     response.status_code = status_code

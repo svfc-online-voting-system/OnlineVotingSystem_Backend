@@ -18,8 +18,8 @@ def create_ssl_context():
     return ssl_context
 
 app = create_app()
-# origin = getenv('ENVIRONMENT') == 'production' and str(getenv('LIVE_FRONTEND_URL')) or str(getenv('LOCAL_FRONTEND_URL'))
-CORS(app, supports_credentials=True, origins=['https://localhost:4200'])
+origin = getenv('ENVIRONMENT') == 'production' and str(getenv('LIVE_FRONTEND_URL')) or str(getenv('LOCAL_FRONTEND_URL'))
+CORS(app, supports_credentials=True, origins=[origin])
 
 configured_ssl_context = create_ssl_context()
 

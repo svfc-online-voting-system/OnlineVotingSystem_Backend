@@ -7,9 +7,11 @@
 from os import urandom, getenv
 from datetime import datetime, timedelta
 from base64 import urlsafe_b64encode
+
+import flask_wtf.csrf
 from logging import getLogger
 from flask import render_template
-from flask_wtf.csrf import generate_csrf
+from app.extension import csrf
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
 from bcrypt import hashpw, gensalt, checkpw
 from jwt import ExpiredSignatureError, InvalidTokenError
@@ -20,7 +22,7 @@ from app.exception.authorization_exception import (EmailAlreadyTaken, EmailNotFo
                                                    OTPIncorrectException,
                                                    AccountNotVerifiedException,
                                                    PasswordIncorrectException)
-from app.models.users import UserOperations, OtpOperations, PasswordOperations, ForgotPasswordOperations, \
+from app.models.user import UserOperations, OtpOperations, PasswordOperations, ForgotPasswordOperations, \
     EmailVerificationOperations
 from app.utils.email_utility import send_mail
 
@@ -178,8 +180,8 @@ class OTPService:  # pylint: disable=R0903
             user_id = OtpOperations.verify_otp(email=email, otp=otp)
             if user_id:
                 return (SessionTokenService
-                        .generate_session_token(email, user_id), CSRFTokenService
-                        .generate_csrf_token())
+                        .generate_session_token(email, user_id),
+                        CSRFTokenService.generate_csrf_token())
             return None
         except (OperationalError, ValueError, OTPExpiredException, OTPIncorrectException,
                 EmailNotFoundException) as e:
@@ -197,7 +199,7 @@ class TokenVerificationService:  # pylint: disable=R0903
     @jwt_required(locations=['cookies', 'headers'])
     def verify_token():  # pylint: disable=C0116
         try:
-            jwt_identity = get_jwt_identity()
+            jwt_identity = csrf.validate()
             logger.info("JWT Identity verified for user: %s", jwt_identity)
             return {'code': 'success', 'message': 'JWT Identity verified.'}, 200
         except (ExpiredSignatureError, InvalidTokenError) as e:
@@ -208,7 +210,7 @@ class CSRFTokenService:  # pylint: disable=R0903
     @staticmethod
     def generate_csrf_token():
         """This is the function responsible for generating the CSRF token."""
-        return generate_csrf()
+        return flask_wtf.csrf.generate_csrf()
 
 class SessionTokenService:  # pylint: disable=R0903
     """ This class is responsible for the session token service. """

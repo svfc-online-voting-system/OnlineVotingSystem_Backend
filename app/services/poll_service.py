@@ -1,6 +1,7 @@
 """ Service routes for poll related endpoints and validation """
 
-from app.models.vote_types import VoteTypes
+from app.models.voting_event import VotingEvent
+
 from app.models.votes import Votes
 
 
@@ -12,7 +13,7 @@ class PollService:
         if len(poll_title) > 255:
             raise ValueError
         votes = Votes()
-        vote_types = VoteTypes()
+        vote_types = VotingEvent()
         vote_type_id = vote_types.add_new_vote(poll_title=poll_title.strip(), poll_type='poll')
         return votes.add_new_votes(user_id, vote_type_id)
     @classmethod

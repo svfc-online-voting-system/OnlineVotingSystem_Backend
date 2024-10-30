@@ -1,6 +1,7 @@
 """
     The User class contains the following columns:
             - user_id: Integer, primary key, autoincrement
+            - uuid: UUID, unique, not null
             - username: String, unique, not null
             - salt: String, not null
             - hashed_password: String, not null
@@ -17,6 +18,7 @@
             - otp_expiry: Date, nullable
             - reset_token: String, nullable
             - reset_expiry: Date, nullable
+            - deleted_at: Date, nullable
 """
 import base64
 import uuid
@@ -30,10 +32,11 @@ from sqlalchemy import Column, Integer, Date, select, update, Boolean, VARCHAR, 
 from sqlalchemy.exc import IntegrityError, DataError, OperationalError, DatabaseError
 from sqlalchemy.sql import expression
 from app.utils.engine import get_session
-from app.exception.authorization_exception import (EmailNotFoundException, OTPExpiredException,
-                                                   OTPIncorrectException,
-                                                   PasswordResetExpiredException,
-                                                   PasswordResetLinkInvalidException)
+from app.exception.authorization_exception import
+                                                (EmailNotFoundException, OTPExpiredException,
+                                                OTPIncorrectException,
+                                                PasswordResetExpiredException,
+                                                PasswordResetLinkInvalidException)
 from app.models.base import Base
 
 class User(Base):  # pylint: disable=R0903
@@ -95,7 +98,7 @@ class UserOperations:
             raise e
         finally:
             session.close()
-    
+
     @staticmethod
     def login(email):  # pylint: disable=C0116
         session = get_session()
@@ -121,7 +124,7 @@ class UserOperations:
             raise e
         finally:
             session.close()
-        
+
     @staticmethod
     def is_email_verified(email):  # pylint: disable=C0116
         session = get_session()
@@ -133,7 +136,7 @@ class UserOperations:
             raise e
         finally:
             session.close()
-    
+
     @staticmethod
     def is_email_exists(email):  # pylint: disable=C0116
         session = get_session()
@@ -175,7 +178,7 @@ class PasswordOperations:
             raise e
         finally:
             session.close()
-    
+
     @staticmethod
     def password_reset(new_password, user_id):  # pylint: disable=C0116
         session = get_session()
@@ -222,7 +225,7 @@ class OtpOperations:
             raise e
         finally:
             session.close()
-            
+
     @staticmethod
     def verify_otp(email, otp):  # pylint: disable=C0116
         session = get_session()
@@ -285,7 +288,7 @@ class EmailVerificationOperations:
             raise e
         finally:
             session.close()
-    
+
     @staticmethod
     def resend_email_verification(email):  # pylint: disable=C0116
         session = get_session()

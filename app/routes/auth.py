@@ -1,9 +1,11 @@
 """ This module contains the routes for the authentication of users. """
+import flask_wtf.csrf
 from logging import getLogger
-from flask import Blueprint, request, Response, make_response, jsonify
+from flask import Blueprint, request, Response
 from jwt import ExpiredSignatureError, InvalidTokenError
 from marshmallow import ValidationError
-from app.extension import csrf
+from flask_jwt_extended import jwt_required
+from flask_jwt_extended.exceptions import CSRFError
 from app.exception.authorization_exception import (EmailNotFoundException, OTPExpiredException,
                                                    OTPIncorrectException,
                                                    PasswordResetExpiredException,
@@ -19,15 +21,15 @@ from app.utils.error_handlers import (handle_account_not_verified_exception, han
                                       handle_otp_expired_exception, handle_email_not_found,
                                       handle_password_reset_expired_exception,
                                       handle_password_reset_link_invalid_exception, handle_email_already_taken,
-                                      handle_value_error, handle_database_errors, handle_validation_error,
-                                      handle_no_authorization_error)
+                                      handle_value_error, handle_validation_error,
+                                      handle_no_authorization_error, handle_csrf_error)
 from app.utils.response_utils import set_response
+from app.extension import csrf
 
 logger = getLogger(name=__name__)
 auth_blueprint = Blueprint('auth', __name__)
 auth_service = AuthService()
 
-auth_blueprint.register_error_handler(Exception, handle_database_errors)
 auth_blueprint.register_error_handler(ValueError, handle_value_error)
 auth_blueprint.register_error_handler(ValidationError, handle_validation_error)
 auth_blueprint.register_error_handler(EmailAlreadyTaken, handle_email_already_taken)
@@ -44,6 +46,7 @@ auth_blueprint.register_error_handler(PasswordResetLinkInvalidException,
                                       handle_password_reset_link_invalid_exception)
 auth_blueprint.register_error_handler(NoAuthorizationError, handle_no_authorization_error)
 auth_blueprint.register_error_handler(Exception, handle_general_exception)
+auth_blueprint.register_error_handler(CSRFError, handle_csrf_error)
 
 @auth_blueprint.route(rule='/auth/create-account', methods=['POST'])
 @csrf.exempt
@@ -98,28 +101,25 @@ def login() -> Response:
     })
 
 @auth_blueprint.route(rule='/auth/logout', methods=['POST'])
+@jwt_required(optional=False)
 def logout() -> Response:
     """ This is the route for logging out. """
-    response = make_response()
-    response.delete_cookie('Authorization', secure=True, samesite='None', path='/', httponly=True)
-    response.delete_cookie('X-CSRFToken',   secure=True, samesite='None', path='/', httponly=True)
-    response.delete_cookie('session', secure=True, samesite='None', path='/', httponly=True)
-    res_body = jsonify({
+    return set_response(200, {
         'code': 'success',
         'message': 'Logged out successfully.'
-    })
-    response.data = res_body
-    return response
+    }, action='logout')
 
 @auth_blueprint.route(rule='/auth/verify-jwt-identity', methods=['GET'])
+@jwt_required(optional=True)
 def verify_jwt_identity() -> Response:
     """ This is the route for verifying the JWT identity. """
+    print(request.cookies)
     try:
-        auth_service_verify_token = AuthService()
-        result = auth_service_verify_token.verify_token()
-        if result:
-            return set_response(200, {'code': 'success', 'message': 'JWT Identity verified.'})
-        return set_response(401, {'code': 'unauthorized', 'message': 'Unauthorized access.'})
+        csrf.validate()
+        return set_response(200, {
+            'code': 'success',
+            'message': 'Token Verified'
+        })
     except ExpiredSignatureError:
         logger.warning("JWT token has expired")
         return set_response(401,
@@ -134,7 +134,7 @@ def verify_jwt_identity() -> Response:
                             )
 
 @auth_blueprint.route(rule='/auth/verify-token-reset-password', methods=['PATCH'])
-@csrf.exempt
+@jwt_required(optional=True)
 def verify_token_reset_password():
     """ Function for handling token verification for password reset. """
     token = request.json.get('token')
@@ -155,7 +155,7 @@ def verify_token_reset_password():
     })
 
 @auth_blueprint.route(rule='/auth/forgot-password', methods=['PATCH'])
-@csrf.exempt
+@jwt_required(optional=True)
 def forgot_password():
     """ Function for handling forgot password. """
     email = request.json.get('email')
@@ -182,6 +182,7 @@ def otp_verification() -> Response:
         raise ValueError('Invalid data format')
     auth_service_otp = AuthService()
     session_token, csrf_token = auth_service_otp.verify_otp(email=email, otp=otp)
+    
     if session_token and csrf_token:
         return set_response(200, {
             'code': 'success',
@@ -193,7 +194,7 @@ def otp_verification() -> Response:
     })
 
 @auth_blueprint.route(rule='/auth/generate-otp', methods=["PATCH"])
-@csrf.exempt
+@jwt_required(optional=True)
 def generate_otp() -> Response:
     """ Function for handling otp generation.
     The use-case of this is when the user want to resend
@@ -237,7 +238,7 @@ def verify_email(token: str) -> Response:
     })
 
 @auth_blueprint.route(rule='/auth/resend-verification-email', methods=['PATCH'])
-@csrf.exempt
+@jwt_required(optional=True)
 def resend_verification_email() -> Response:
     """ Function for handling email verification. """
     email = request.json.get('email')
