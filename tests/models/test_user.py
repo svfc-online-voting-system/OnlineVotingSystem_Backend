@@ -29,6 +29,9 @@ def mock_session():
 def valid_user_data():
     """ Represents a valid user data. """
     salt = gensalt(rounds=16).decode('utf-8')
+    hashed_password = (hashpw('hashedpassword123'.encode('utf-8'), salt.encode('utf-8'))).decode('utf-8')
+    verification_token = (urlsafe_b64encode(urandom(128))
+                                .decode('utf-8').rstrip('='))
     return {
         'uuid': uuid4().bytes,
         "username": "testuser",
@@ -40,12 +43,12 @@ def valid_user_data():
         'verified_account': False,
         'is_admin': False,
         'salt': salt,
-        'hashed_password': hashpw('hashedpassword123'.encode('utf-8'), salt.encode('utf-8')).decode('utf-8'),
+        'hashed_password': hashed_password,
         'otp_secret': None,
         'otp_expiry': None,
         'reset_token': None,
         'reset_expiry': None,
-        'verification_token': (urlsafe_b64encode(urandom(128)).decode('utf-8').rstrip('=')),
+        'verification_token': verification_token,
         'verification_expiry': (datetime.now() + timedelta(days=1)).date(),
     }
 
@@ -58,18 +61,18 @@ class TestUserOperation:
         mock_user = Mock()
         mock_user.user_id = 1
         mock_session.add.return_value = None
-
+        
         def side_effect(user):
             user.user_id = 1
         mock_session.add.side_effect = side_effect
-
+        
         user_id = UserOperations.create_new_user(valid_user_data)
-
+        
         assert user_id == 1  # type: ignore
         mock_session.add.assert_called_once()
         mock_session.commit.assert_called_once()
         mock_session.close.assert_called_once()
-
+        
         user_obj = mock_session.add.call_args[0][0]
         assert isinstance(user_obj, User)
         assert user_obj.username == valid_user_data["username"]
@@ -112,7 +115,7 @@ class TestUserOperation:
         "date_of_birth",
         "creation_date",
         "salt",
-        "hashed_password"
+        "hashed_password",
         "otp_secret",
         "otp_expiry",
         "reset_token",
@@ -142,19 +145,19 @@ class TestUserOperation:
 
     def test_should_return_email_hashed_password_salt_when_user_exists(self, mock_session, valid_user_data):
         """Test getting the hashed password and salt for a user that exists."""
-        mock_session.query.return_value.filter_by.return_value.first.return_value = User(
-            **valid_user_data)
+        mock_user = User(**valid_user_data)
+        mock_session.execute.return_value.first.return_value = mock_user
 
-        result = UserOperations.login(
-            valid_user_data["email"])
-        hashed_password, salt, email = result
+        result = UserOperations.login(valid_user_data["email"])
+        email, hashed_password, salt = result
+
         assert hashed_password == valid_user_data["hashed_password"]
         assert salt == valid_user_data["salt"]
         assert email == valid_user_data["email"]
 
     def test_should_return_email_not_found_exception_when_user_does_not_exist(self, mock_session):
         """Test getting the hashed password and salt for a user that does not exist."""
-        mock_session.query.return_value.filter_by.return_value.first.return_value = None
+        mock_session.execute.return_value.first.return_value = None
 
         with pytest.raises(EmailNotFoundException) as exc_info:
             UserOperations.login("some_arbitrary_email@example.com")
@@ -163,7 +166,7 @@ class TestUserOperation:
 
     def test_should_return_false_when_email_is_not_verified(self, mock_session, valid_user_data):
         """Test checking if a user is verified."""
-        mock_session.query.return_value.filter_by.return_value.first.return_value = User(
+        mock_session.execute.return_value.first.return_value = User(
             **valid_user_data)
 
         is_verified = UserOperations.is_email_verified(
@@ -174,7 +177,7 @@ class TestUserOperation:
     def test_should_return_true_when_email_is_verified(self, mock_session, valid_user_data):
         """Test checking if a user is verified."""
         valid_user_data["verified_account"] = True
-        mock_session.query.return_value.filter_by.return_value.first.return_value = User(
+        mock_session.execute.return_value.first.return_value = User(
             **valid_user_data)
 
         is_verified = UserOperations.is_email_verified(
@@ -182,9 +185,15 @@ class TestUserOperation:
 
         assert is_verified is True
 
+    def test_non_existent_email_raises_exception(self, mock_session):
+        mock_session.execute.return_value.first.return_value = None
+    
+        with pytest.raises(EmailNotFoundException, match="Email not found."):
+            UserOperations.is_email_verified('nonexistent@example.com')
+
     def test_should_return_true_when_email_exists(self, mock_session, valid_user_data):
         """Test checking if an email exists."""
-        mock_session.query.return_value.filter_by.return_value.first.return_value = User(
+        mock_session.query.return_value.first.return_value = User(
             **valid_user_data)
 
         email_exists = UserOperations.is_email_exists(valid_user_data["email"])
@@ -193,7 +202,7 @@ class TestUserOperation:
 
     def test_should_return_false_when_email_does_not_exist(self, mock_session):
         """Test checking if an email exists."""
-        mock_session.query.return_value.filter_by.return_value.first.return_value = None
+        mock_session.execute.return_value.first.return_value = None
 
         email_exists = UserOperations.is_email_exists("test_email@someone.com")
         assert email_exists is False

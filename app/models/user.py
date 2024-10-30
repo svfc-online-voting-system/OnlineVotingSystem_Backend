@@ -83,8 +83,8 @@ class UserOperations:
                 is_admin=user_data.get("is_admin"),
                 salt=user_data.get("salt"),
                 hashed_password=user_data.get("hashed_password"),
-                verification_token=user_data.get("email_verification_token"),
-                verification_expiry=user_data.get("email_verification_expiry"),
+                verification_token=user_data.get("verification_token"),
+                verification_expiry=user_data.get("verification_expiry"),
                 verified_account=user_data.get("verified_account"),
             )
             session.add(new_user)
@@ -101,8 +101,8 @@ class UserOperations:
         session = get_session()
         try:
             user = session.execute(
-                select(User.email, User.hashed_password, User.salt)
-                .where(User.email == email)
+                select(User)
+                .filter(User.email == email)
             ).first()
             if user is None:
                 raise EmailNotFoundException("Email not found.")
@@ -122,7 +122,7 @@ class UserOperations:
             session.close()
 
     @staticmethod
-    def is_email_verified(email) -> bool:  # pylint: disable=C0116
+    def is_email_verified(email):  # pylint: disable=C0116
         session = get_session()
         try:
             user = session.execute(
@@ -130,7 +130,7 @@ class UserOperations:
                 .where(User.email == email)).first()
             if user is None:
                 raise EmailNotFoundException("Email not found.")
-            return bool(user.verified_account)
+            return user.verified_account
         except OperationalError as e:
             session.rollback()
             raise e
@@ -141,9 +141,11 @@ class UserOperations:
     def is_email_exists(email: str) -> bool:  # pylint: disable=C0116
         session = get_session()
         try:
-            user = session.query(User.email).filter(
-                User.email == email).first()
-            return user is not None
+            user = session.execute(select(User.email).filter(
+                User.email == email)).first()
+            if user is not None:
+                return True
+            return False
         except (DataError, IntegrityError, OperationalError, DatabaseError) as e:
             session.rollback()
             raise e
