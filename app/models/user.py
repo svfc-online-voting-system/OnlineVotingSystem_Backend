@@ -28,29 +28,32 @@ from os import getenv, urandom
 import time
 import bcrypt
 import pyotp
-from sqlalchemy import Column, Integer, Date, select, update, Boolean, VARCHAR, BINARY
+from sqlalchemy import Column, Integer, Date, select, update, Boolean, VARCHAR, BINARY, ColumnElement
 from sqlalchemy.exc import IntegrityError, DataError, OperationalError, DatabaseError
 from sqlalchemy.sql import expression
 from app.utils.engine import get_session
-from app.exception.authorization_exception import
-                                                (EmailNotFoundException, OTPExpiredException,
-                                                OTPIncorrectException,
-                                                PasswordResetExpiredException,
-                                                PasswordResetLinkInvalidException)
+from app.exception.authorization_exception import (
+    EmailNotFoundException, OTPExpiredException,
+    OTPIncorrectException,
+    PasswordResetExpiredException,
+    PasswordResetLinkInvalidException
+)
 from app.models.base import Base
+
 
 class User(Base):  # pylint: disable=R0903
     """Class representing a User in the database."""
     __tablename__ = 'user'
     user_id = Column(Integer, primary_key=True, autoincrement=True)
-    uuid = Column(BINARY(length=16), nullable=False, unique=True)
-    username = Column(VARCHAR(length=45), unique=True, nullable=False)
-    email = Column(VARCHAR(length=100), nullable=False)
-    firstname = Column(VARCHAR(length=100), nullable=False)
-    lastname = Column(VARCHAR(length=100), nullable=False)
+    uuid = Column(BINARY(16), nullable=False, unique=True,)
+    username = Column(VARCHAR(45), unique=True, nullable=False)
+    email = Column(VARCHAR(100), nullable=False)
+    firstname = Column(VARCHAR(100), nullable=False)
+    lastname = Column(VARCHAR(100), nullable=False)
     date_of_birth = Column(Date, nullable=False)
     creation_date = Column(Date, nullable=False)
-    verified_account = Column(Boolean, default=expression.false(), nullable=False)
+    verified_account = Column(
+        Boolean, default=expression.false(), nullable=False)
     is_admin = Column(Boolean, default=expression.false(), nullable=False)
     salt = Column(VARCHAR(45), nullable=False)
     hashed_password = Column(VARCHAR(255), nullable=False)
@@ -61,31 +64,25 @@ class User(Base):  # pylint: disable=R0903
     verification_token = Column(VARCHAR(175), nullable=True)
     verification_expiry = Column(Date, nullable=True)
     deleted_at = Column(Date, nullable=True)
-    # votes = relationship('Votes',
-    #                      back_populates='users',
-    #                      uselist=False, cascade="all, delete-orphan")
-    # ballots = relationship("Ballots",
-    #                         back_populates="users", cascade="all, delete-orphan")
-    # poll_votes = relationship("PollVotes",
-    #                             back_populates="users", cascade="all, delete-orphan")
+
 
 class UserOperations:
     """ Class responsible for operation like creating a new user, login, etc. """
     @staticmethod
-    def create_new_user(user_data: dict):  # pylint: disable=C0116
+    def create_new_user(user_data: dict) -> ColumnElement[int]:  # pylint: disable=C0116
         session = get_session()
         try:
             new_user = User(
                 uuid=uuid.uuid4().bytes,
                 username=user_data.get("username"),
                 email=user_data.get("email"),
-                firstname=user_data.get("first_name").capitalize(),
-                lastname=user_data.get("last_name").capitalize(),
+                firstname=user_data.get("firstname"),
+                lastname=user_data.get("lastname"),
                 date_of_birth=user_data.get("date_of_birth"),
                 creation_date=user_data.get("creation_date"),
                 is_admin=user_data.get("is_admin"),
                 salt=user_data.get("salt"),
-                hashed_password=user_data.get("password"),
+                hashed_password=user_data.get("hashed_password"),
                 verification_token=user_data.get("email_verification_token"),
                 verification_expiry=user_data.get("email_verification_expiry"),
                 verified_account=user_data.get("verified_account"),
@@ -103,19 +100,18 @@ class UserOperations:
     def login(email):  # pylint: disable=C0116
         session = get_session()
         try:
-            user_with_profile_stmt = (
+            user = session.execute(
                 select(User.email, User.hashed_password, User.salt)
                 .where(User.email == email)
-            )
-            user_with_profile = session.execute(user_with_profile_stmt).first()
-            if user_with_profile is None:
+            ).first()
+            if user is None:
                 raise EmailNotFoundException("Email not found.")
-            email, hashed_password, salt = user_with_profile
-            return {
-                'email': email,
-                'password': hashed_password,
-                'salt': salt
-            }
+            email, hashed_password, salt = user.email, user.hashed_password, user.salt
+            return (
+                email,
+                hashed_password,
+                salt
+            )
         except (OperationalError, DatabaseError) as e:
             session.rollback()
             raise e
@@ -126,10 +122,14 @@ class UserOperations:
             session.close()
 
     @staticmethod
-    def is_email_verified(email):  # pylint: disable=C0116
+    def is_email_verified(email) -> bool:  # pylint: disable=C0116
         session = get_session()
         try:
-            user = session.query(User.verified_account).filter(User.email == email).first()
+            user = session.execute(
+                select(User)
+                .where(User.email == email)).first()
+            if user is None:
+                raise EmailNotFoundException("Email not found.")
             return bool(user.verified_account)
         except OperationalError as e:
             session.rollback()
@@ -138,16 +138,18 @@ class UserOperations:
             session.close()
 
     @staticmethod
-    def is_email_exists(email):  # pylint: disable=C0116
+    def is_email_exists(email: str) -> bool:  # pylint: disable=C0116
         session = get_session()
         try:
-            user = session.query(User.email).filter(User.email == email).first()
-            return bool(user)
+            user = session.query(User.email).filter(
+                User.email == email).first()
+            return user is not None
         except (DataError, IntegrityError, OperationalError, DatabaseError) as e:
             session.rollback()
             raise e
         finally:
             session.close()
+
 
 class PasswordOperations:
     """ Class responsible for password operations like hashing, verifying, etc. """
@@ -155,15 +157,14 @@ class PasswordOperations:
     def verify_forgot_password_token(reset_token, new_password):  # pylint: disable=C0116
         session = get_session()
         try:
-            user = session.execute(select(User.user_id, User.reset_expiry)
-                                   .where(User.reset_token == reset_token)).first()
+            user = session.execute(
+                select(User.user_id, User.reset_expiry)
+                .where(User.reset_token == reset_token)).first()
             if user is None:
                 raise PasswordResetLinkInvalidException("Invalid reset token.")
             if user[1] < datetime.now():
                 query = (
                     update(User)
-                    # .where(Users.user_id == user[0])
-                    # .where(Profiles.user_id == user[0])
                     .where(User.user_id == user[0])
                     .values(reset_token=None, reset_expiry=None)
                 )
@@ -200,6 +201,7 @@ class PasswordOperations:
         finally:
             session.close()
 
+
 class OtpOperations:
     """ Class responsible for OTP operations like generating, verifying, etc. """
     @staticmethod
@@ -207,19 +209,38 @@ class OtpOperations:
         session = get_session()
         try:
             seed = f"{getenv('TOTP_SECRET_KEY')}{int(time.time())}"
-            seven_digit_otp = pyotp.TOTP(base64.b32encode(bytes.fromhex(seed))
-                                         .decode('UTF-8'),
-                                         digits=7, interval=300, digest=hashlib.sha256).now()
+            seven_digit_otp = pyotp.TOTP(
+                base64.b32encode(bytes.fromhex(seed))
+                .decode('UTF-8'), digits=7, interval=300, digest=hashlib.sha256).now()
             otp_expiry: datetime = datetime.now() + timedelta(minutes=5)
             query = (
                 update(User)
                 .where(User.email == email)
                 .values(otp_secret=seven_digit_otp, otp_expiry=otp_expiry)
             )
-            get_name = select(User.firstname).where(User.email == email)
+            user_name = session.execute(
+                select(User.firstname).where(User.email == email)).first()
             session.execute(query)
             session.commit()
-            return seven_digit_otp, session.execute(get_name).first()[0]
+            return seven_digit_otp, user_name
+        except (OperationalError, DatabaseError, DataError) as e:
+            session.rollback()
+            raise e
+        finally:
+            session.close()
+
+    @staticmethod
+    def set_otp(email, otp, expiry):
+        session = get_session()
+        try:
+            query = (
+                update(User)
+                .where(User.email == email)
+                .values(otp_secret=otp, otp_expiry=expiry)
+            )
+            session.execute(query)
+            session.commit()
+            return 'otp_set'
         except (OperationalError, DatabaseError, DataError) as e:
             session.rollback()
             raise e
@@ -230,17 +251,18 @@ class OtpOperations:
     def verify_otp(email, otp):  # pylint: disable=C0116
         session = get_session()
         try:
-            user_otp_secret, user_otp_expiry = session.execute(select(User.otp_secret, User.otp_expiry)
-                                                               .where(User.email == email)).first()
+            result = session.execute(
+                select(User.otp_secret, User.otp_expiry)
+                .where(User.email == email)).first()
+            if result is None:
+                raise EmailNotFoundException("Email not found.")
+            user_otp_secret, user_otp_expiry = result
             if user_otp_secret is None or user_otp_expiry is None:
                 raise OTPExpiredException("OTP has expired.")
             if user_otp_expiry < datetime.now():
-                query = (
-                    update(User)
-                    .where(User.email == email)
-                    .values(otp_secret=None, otp_expiry=None)
-                )
-                session.execute(query)
+                session.execute(update(User)
+                                .where(User.email == email)
+                                .values(otp_secret=None, otp_expiry=None))
                 session.commit()
                 raise OTPExpiredException("OTP has expired.")
             if int(user_otp_secret) != int(otp):
@@ -260,6 +282,7 @@ class OtpOperations:
         finally:
             session.close()
 
+
 class EmailVerificationOperations:
     """ Class responsible for email verification operations like verifying, resending, etc. """
     @staticmethod
@@ -267,21 +290,21 @@ class EmailVerificationOperations:
         session = get_session()
         try:
             user = session.execute(
-                select(User).where(User.verification_token == token)
+                select(User.verification_expiry, User.verification_token,
+                       User.email).where(User.verification_token == token)
             ).scalars().first()
             if user is None:
                 raise ValueError("Invalid token.")
             if user.verification_expiry < datetime.now():
                 user.verification_token = None
                 user.verification_expiry = None
-                email = user.profile.email
+                email = user.email
                 session.commit()
                 return email
             user.verified_account = True
             user.verification_token = None
             user.verification_expiry = None
             session.commit()
-            print("Email verified.")
             return 'email_verified'
         except Exception as e:
             session.rollback()
@@ -318,18 +341,20 @@ class EmailVerificationOperations:
         finally:
             session.close()
 
+
 class ForgotPasswordOperations:  # pylint: disable=R0903
     """ Class responsible for forgot password operations like sending reset link, verifying, etc. """
     @staticmethod
     def send_forgot_password_link(email):  # pylint: disable=C0116
         session = get_session()
         try:
-            user_id, first_name = session.execute(
+            result = session.execute(
                 select(User.user_id, User.firstname)
                 .where(User.email == email)
             ).first()
-            if user_id is None:
+            if result is None:
                 raise EmailNotFoundException("Email not found.")
+            user_id, first_name = result
             reset_token = base64.b64encode(urandom(128)).decode('utf-8')
             reset_expiry = datetime.now() + timedelta(minutes=60)
             query = (
