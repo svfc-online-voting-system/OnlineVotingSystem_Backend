@@ -6,4 +6,3 @@ class Admin:  # pylint: disable=R0903
     @classmethod
     def approve_vote(cls, vote_metadata: dict):
         """ Service that will call and validate the approval of the vote """
-        pass

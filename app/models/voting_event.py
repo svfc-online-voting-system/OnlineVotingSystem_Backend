@@ -77,9 +77,7 @@ class AdminOperations:
     @classmethod
     def approve_vote(cls, voting_event_id: int):
         """ Service that will call and validate the approval of the vote """
-        pass
     
     @classmethod
     def get_all_voting_events(cls):
         """ Service that will return all the voting events """
-        pass

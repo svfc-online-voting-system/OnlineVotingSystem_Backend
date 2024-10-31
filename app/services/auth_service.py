@@ -286,8 +286,8 @@ class EmailVerificationService:
         verification_expiry = datetime.now() + timedelta(minutes=2880)
         EmailVerificationOperations.resend_email_verification(
             email,
-            verification_token,
-            verification_expiry
+            verification_expiry,
+            verification_token
         )
         verification_url = getenv(
             'LOCAL_FRONTEND_URL', '') + getenv('API_VERIFY_EMAIL', '') + verification_token

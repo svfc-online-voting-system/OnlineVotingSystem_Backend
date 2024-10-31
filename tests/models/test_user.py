@@ -18,6 +18,7 @@ from app.models.user import User, UserOperations
 
 @pytest.fixture
 def mock_session():
+    """Mock the session object."""
     with patch('app.models.user.get_session') as mock:
         session = Mock()
         mock.return_value = session
@@ -54,6 +55,7 @@ def valid_user_data():
 
 # noinspection PyTypeHints,SqlNoDataSourceInspection
 class TestUserOperation:
+    """Test for user operations."""
     def test_create_user_when_input_valid(self, mock_session, valid_user_data):  # pylint: disable=C0103
         """Test creating a new user with valid data."""
         mock_session.commit = Mock()
@@ -207,17 +209,17 @@ class TestUserOperation:
         assert email_exists is False
 
 
-class TestPasswordOperations:
+class TestPasswordOperations:  # pylint: disable=R0903
     """Test for password operations."""
 
 
-class TestOTPOperations:
+class TestOTPOperations:  # pylint: disable=R0903
     """Test for OTP operations."""
 
 
-class TestEmailVerificationOperations:
+class TestEmailVerificationOperations:  # pylint: disable=R0903
     """Test for email verification operations."""
 
 
-class TestForgotPasswordOperations:
+class TestForgotPasswordOperations:  # pylint: disable=R0903
     """Test for forgot password operations."""

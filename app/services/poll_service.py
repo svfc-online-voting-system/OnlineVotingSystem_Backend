@@ -38,7 +38,7 @@ class PollService:
         print(poll_id, user_id)
     
     @classmethod
-    def get_poll_details(cls, poll_id):
+    def get_poll_details(cls):
         """ Responsible for getting the poll details """
         return 'Poll details'
     
