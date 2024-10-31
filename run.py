@@ -1,10 +1,13 @@
 """ This module is used to run the Flask app. """
-from app import create_app
-from werkzeug.serving import run_simple
-from flask_cors import CORS
 from os import getenv
 from ssl import SSLContext, PROTOCOL_TLS_SERVER
+
 from dotenv import load_dotenv
+from flask_cors import CORS
+from werkzeug.serving import run_simple
+
+from app import create_app
+
 load_dotenv(dotenv_path='.env')
 
 

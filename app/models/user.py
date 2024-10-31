@@ -285,7 +285,7 @@ class EmailVerificationOperations:
                 select(User.user_id)
                 .where(User.email == email)
             )
-            user_id, first_name = session.execute(query_user_id)
+            user_id = session.execute(query_user_id)
             if user_id is None:
                 raise EmailNotFoundException("Email not found.")
             query = (

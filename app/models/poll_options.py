@@ -8,7 +8,7 @@ from app.models.base import Base
 from app.utils.engine import get_session
 
 
-class PollOption(Base):
+class PollOption(Base):  # pylint: disable=R0903
     """ Class to represent the poll options table """
     __tablename__ = 'poll_option'
     option_id = Column(

@@ -114,8 +114,7 @@ class UserRegistrationService:  # pylint: disable=R0903
         user_id = UserOperations.create_new_user(new_user_data)
         message = render_template(
             "auth/welcome.html",
-            verification_url=f"{front_end_verify_email_url}{
-                verification_token}",
+            verification_url=f"{front_end_verify_email_url}{verification_token}",
             user_name=user_data.get('email'))
         send_mail(
             message=message,

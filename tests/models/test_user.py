@@ -2,19 +2,18 @@
 
 # pylint: disable=redefined-outer-name
 
-from uuid import uuid4
-from os import urandom
 from base64 import urlsafe_b64encode
 from datetime import datetime, timedelta
+from os import urandom
 from unittest.mock import Mock, patch
+from uuid import uuid4
 
 import pytest
 from bcrypt import gensalt, hashpw
-from sqlalchemy import Null
 from sqlalchemy.exc import IntegrityError
 
-from app.models.user import User, UserOperations
 from app.exception.authorization_exception import EmailNotFoundException
+from app.models.user import User, UserOperations
 
 
 @pytest.fixture
@@ -129,8 +128,7 @@ class TestUserOperation:
         """Test creating a new user with a missing required field."""
         # Arrange
         valid_user_data[missing_field] = None
-        error_message = f'null value in column "{
-            missing_field}" of relation "user" violates not-null constraint'
+        error_message = f'null value in column "{missing_field}" of relation "user" violates not-null constraint'
         mock_session.commit.side_effect = IntegrityError(
             statement="INSERT INTO user ...",
             params={},
