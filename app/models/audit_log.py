@@ -4,7 +4,7 @@ from sqlalchemy import Column, Integer, VARCHAR, BINARY, TIMESTAMP
 from app.models.base import Base
 
 
-class AuditLog(Base):
+class AuditLog(Base):  # pylint: disable=R0903
     """AuditLog model class that represents the audit_log table."""
     __tablename__ = "audit_log"
     log_id = Column(Integer, primary_key=True, autoincrement=True)

@@ -28,37 +28,37 @@ class PollService:
         }
         return VotingEventOperations.create_new_voting_event(poll_data=new_poll_data)
     @classmethod
-    def delete_poll(cls, poll_id):
+    def delete_poll(cls, poll_id, user_id):
         """ Responsible for deleting a poll """
-        pass
+        print(poll_id, user_id)
     
     @classmethod
-    def rename_poll_title(cls, poll_id):
+    def rename_poll_title(cls, poll_id, user_id):
         """ Responsible for renaming a poll title """
-        pass
+        print(poll_id, user_id)
     
     @classmethod
     def get_poll_details(cls, poll_id):
         """ Responsible for getting the poll details """
-        pass
+        return 'Poll details'
     
     @classmethod
-    def delete_option(cls, option_id: int):
+    def delete_option(cls, option_id):
         """ Responsible for deleting an option in a poll """
         pass
     
     @classmethod
-    def add_option(cls, poll_id: int):
+    def add_option(cls, poll_id, user_id, option_text):
         """ Responsible for adding an option in a poll by their id """
         pass
     
     @classmethod
-    def edit_option(cls, option_id: int):
+    def edit_option(cls, option_id: int, new_option_text: str):
         """ Responsible for editing an option in a poll """
         pass
     
     @classmethod
-    def cast_poll_vote(cls, vote_info: dict):
+    def cast_poll_vote(cls, event_id, option_id, user_id):
         """ Responsible for casting a vote """
         pass
     

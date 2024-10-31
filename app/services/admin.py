@@ -1,11 +1,12 @@
 """ These are the services that the admin are able to access. """
 
-from sqlalchemy.exc import IntegrityError, DataError, OperationalError, DatabaseError
 from app.models.votes import Votes
+from sqlalchemy.exc import IntegrityError, DataError, OperationalError, DatabaseError
+
 from app.exception.votes_exception import VoteDoesNotExists
 
 
-class Admin:
+class Admin:  # pylint: disable=R0903
     """ Class that will contain all the action the admin user can do. """
     @classmethod
     def approve_vote(cls, vote_metadata: dict):

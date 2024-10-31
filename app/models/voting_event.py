@@ -30,8 +30,12 @@ class VotingEvent(Base):  # pylint: disable=R0903
     
 
 class VotingEventOperations:
+    """
+    Class to handle voting event operations such as creating, updating,
+    deleting and getting voting events
+    """
     @classmethod
-    def create_new_voting_event(cls, poll_data: dict):
+    def create_new_voting_event(cls, poll_data: dict):  # pylint: disable=C0116
         session = get_session()
         try:
             new_voting_event = VotingEvent(
@@ -57,14 +61,14 @@ class VotingEventOperations:
             session.close()
     
     @classmethod
-    def update_voting_event(cls):
+    def update_voting_event(cls):  # pylint: disable=C0116
         pass
     
     @classmethod
-    def delete_voting_event(cls):
+    def delete_voting_event(cls):  # pylint: disable=C0116
         pass
     
     @classmethod
-    def get_voting_event(cls):
+    def get_voting_event(cls):  # pylint: disable=C0116
         pass
     
