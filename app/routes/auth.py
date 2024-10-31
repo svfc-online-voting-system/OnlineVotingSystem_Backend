@@ -29,9 +29,26 @@ logger = getLogger(name=__name__)
 auth_blueprint = Blueprint('auth', __name__)
 auth_service = AuthService()
 
-auth_blueprint.register_error_handler(Exception, handle_database_errors)
 auth_blueprint.register_error_handler(ValueError, handle_value_error)
 auth_blueprint.register_error_handler(ValidationError, handle_validation_error)
+auth_blueprint.register_error_handler(
+    EmailAlreadyTaken, handle_email_already_taken)
+auth_blueprint.register_error_handler(
+    PasswordIncorrectException, handle_password_incorrect_exception)
+auth_blueprint.register_error_handler(
+    AccountNotVerifiedException, handle_account_not_verified_exception)
+auth_blueprint.register_error_handler(
+    EmailNotFoundException, handle_email_not_found)
+auth_blueprint.register_error_handler(
+    OTPExpiredException, handle_otp_expired_exception)
+auth_blueprint.register_error_handler(
+    OTPIncorrectException, handle_otp_incorrect_exception)
+auth_blueprint.register_error_handler(
+    PasswordResetExpiredException, handle_password_reset_expired_exception)
+auth_blueprint.register_error_handler(
+    PasswordResetLinkInvalidException, handle_password_reset_link_invalid_exception)
+auth_blueprint.register_error_handler(
+    NoAuthorizationError, handle_no_authorization_error)
 auth_blueprint.register_error_handler(
     EmailAlreadyTaken, handle_email_already_taken)
 auth_blueprint.register_error_handler(
@@ -67,7 +84,7 @@ def create_account() -> Response:
         raise ValueError('Invalid data format')
     auth_service_create_account = AuthService()
     result = auth_service_create_account.register(user_data=registration_data)
-    if not result:
+    if result is None:
         return set_response(500, {
             'code': 'server_error',
             'message': 'Something went wrong on our end.'
@@ -123,20 +140,21 @@ def logout() -> Response:
     res_body = jsonify({
         'code': 'success',
         'message': 'Logged out successfully.'
-    })
-    response.data = res_body
-    return response
+    }, action='logout')
 
 
+@auth_blueprint.route(rule='/v1/auth/verify-jwt-identity', methods=['GET'])
+@jwt_required(optional=True)
 @auth_blueprint.route(rule='/auth/verify-jwt-identity', methods=['GET'])
 def verify_jwt_identity() -> Response:
     """ This is the route for verifying the JWT identity. """
+    csrf_token = request.headers.get('X-CSRF-TOKEN')
     try:
-        auth_service_verify_token = AuthService()
-        result = auth_service_verify_token.verify_token()
-        if result:
-            return set_response(200, {'code': 'success', 'message': 'JWT Identity verified.'})
-        return set_response(401, {'code': 'unauthorized', 'message': 'Unauthorized access.'})
+        validate_csrf(csrf_token)
+        return set_response(200, {
+            'code': 'success',
+            'message': 'Token Verified'
+        })
     except ExpiredSignatureError:
         logger.warning("JWT token has expired")
         return set_response(
@@ -171,9 +189,16 @@ def verify_token_reset_password():
         )
     token = request.json.get('token')
     new_password = request.json.get('new_password')
+    data = request.json
+    if data is None:
+        raise ValueError('Invalid data format')
+    token = data.get('token')
+    new_password = data.get('new_password')
     if not token or not new_password:
         raise ValueError('Invalid data format')
     if len(new_password) < 8:
+        raise PasswordIncorrectException(
+            'Password must be at least 8 characters.')
         raise PasswordIncorrectException(
             'Password must be at least 8 characters.')
     auth_service_token = AuthService()

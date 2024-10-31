@@ -4,6 +4,7 @@ from os import getenv
 
 from sqlalchemy.exc import DataError, IntegrityError, DatabaseError, OperationalError
 from marshmallow import ValidationError
+from flask_jwt_extended.exceptions import CSRFError
 from flask_jwt_extended.exceptions import NoAuthorizationError, InvalidHeaderError, WrongTokenError, JWTDecodeError, UserClaimsVerificationError
 
 from app.exception.authorization_exception import (
@@ -200,5 +201,15 @@ def handle_user_claims_verification_error(error):
         return set_response(401, {
             'code': 'user_claims_verification_error',
             'message': 'Invalid token.'
+        })
+    raise error
+
+def handle_csrf_error(error):
+    """ This function handles CSRF errors. """
+    if isinstance(error, CSRFError):
+        logger.error("CSRF error: %s", error)
+        return set_response(403, {
+            'code': 'csrf_error',
+            'message': 'CSRF token is missing or incorrect.'
         })
     raise error
