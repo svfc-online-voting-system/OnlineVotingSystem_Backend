@@ -1,18 +1,21 @@
 """ This module contains the routes for the authentication of users. """
 from logging import getLogger
-from flask import Blueprint, request, Response, make_response, jsonify
 
+from flask import Blueprint, request, Response
+from flask_jwt_extended import get_jwt_identity
+from flask_jwt_extended.exceptions import NoAuthorizationError
 from jwt import ExpiredSignatureError, InvalidTokenError
 from marshmallow import ValidationError
+from sqlalchemy.exc import IntegrityError, DatabaseError, OperationalError, DataError
 
-from flask_jwt_extended.exceptions import NoAuthorizationError
-
-from app.extension import csrf
 from app.exception.authorization_exception import (
     EmailNotFoundException, OTPExpiredException, OTPIncorrectException,
     PasswordResetExpiredException, PasswordResetLinkInvalidException,
     EmailAlreadyTaken, PasswordIncorrectException, AccountNotVerifiedException
 )
+from app.extension import csrf
+from app.schemas.auth_forms_schema import SignUpSchema, LoginSchema
+from app.services.auth_service import AuthService
 from app.utils.error_handlers import (
     handle_account_not_verified_exception, handle_general_exception,
     handle_password_incorrect_exception, handle_otp_incorrect_exception,
@@ -21,14 +24,16 @@ from app.utils.error_handlers import (
     handle_password_reset_link_invalid_exception, handle_email_already_taken,
     handle_value_error, handle_database_errors, handle_validation_error,
     handle_no_authorization_error)
-from app.schemas.auth_forms_schema import SignUpSchema, LoginSchema
-from app.services.auth_service import AuthService
 from app.utils.response_utils import set_response
 
 logger = getLogger(name=__name__)
 auth_blueprint = Blueprint('auth', __name__)
 auth_service = AuthService()
 
+auth_blueprint.register_error_handler(IntegrityError, handle_database_errors)
+auth_blueprint.register_error_handler(DataError, handle_database_errors)
+auth_blueprint.register_error_handler(DatabaseError, handle_database_errors)
+auth_blueprint.register_error_handler(OperationalError, handle_database_errors)
 auth_blueprint.register_error_handler(ValueError, handle_value_error)
 auth_blueprint.register_error_handler(ValidationError, handle_validation_error)
 auth_blueprint.register_error_handler(
@@ -70,7 +75,7 @@ auth_blueprint.register_error_handler(
 auth_blueprint.register_error_handler(Exception, handle_general_exception)
 
 
-@auth_blueprint.route(rule='/auth/create-account', methods=['POST'])
+@auth_blueprint.route(rule='/v1/auth/create-account', methods=['POST'])
 @csrf.exempt
 def create_account() -> Response:
     """ This is the route for creating an account. """
@@ -95,16 +100,17 @@ def create_account() -> Response:
     })
 
 
-@auth_blueprint.route(rule='/auth/login', methods=['POST'])
+@auth_blueprint.route(rule='/v1/auth/login', methods=['POST'])
 @csrf.exempt
 def login() -> Response:
     """ This is the route for logging in. """
+    data = request.json
     login_schema = LoginSchema()
-    if request.json is None:
+    if data is None:
         return set_response(400, {'code': 'invalid_request', 'message': 'Bad Request'})
-    if not isinstance(request.json, dict):
+    if not isinstance(data, dict):
         return set_response(400, {'code': 'invalid_data', 'message': 'Invalid data format'})
-    user_data = login_schema.load(request.json)
+    user_data = login_schema.load(data)
     if not isinstance(user_data, dict):
         raise ValueError('Invalid data format')
     auth_service_login = AuthService()
@@ -124,33 +130,20 @@ def login() -> Response:
     })
 
 
-@auth_blueprint.route(rule='/auth/logout', methods=['POST'])
+@auth_blueprint.route(rule='/v1/auth/logout', methods=['POST'])
 def logout() -> Response:
     """ This is the route for logging out. """
-    response = make_response()
-    response.delete_cookie(
-        'Authorization', secure=True,
-        samesite='None', path='/', httponly=True)
-    response.delete_cookie(
-        'X-CSRFToken',   secure=True,
-        samesite='None', path='/', httponly=True)
-    response.delete_cookie(
-        'session', secure=True,
-        samesite='None', path='/', httponly=True)
-    res_body = jsonify({
+    return set_response(200, {
         'code': 'success',
         'message': 'Logged out successfully.'
     }, action='logout')
 
 
 @auth_blueprint.route(rule='/v1/auth/verify-jwt-identity', methods=['GET'])
-@jwt_required(optional=True)
-@auth_blueprint.route(rule='/auth/verify-jwt-identity', methods=['GET'])
 def verify_jwt_identity() -> Response:
     """ This is the route for verifying the JWT identity. """
-    csrf_token = request.headers.get('X-CSRF-TOKEN')
     try:
-        validate_csrf(csrf_token)
+        get_jwt_identity()
         return set_response(200, {
             'code': 'success',
             'message': 'Token Verified'
@@ -175,7 +168,7 @@ def verify_jwt_identity() -> Response:
         )
 
 
-@auth_blueprint.route(rule='/auth/verify-token-reset-password', methods=['PATCH'])
+@auth_blueprint.route(rule='/v1/auth/verify-token-reset-password', methods=['PATCH'])
 @csrf.exempt
 def verify_token_reset_password():
     """ Function for handling token verification for password reset. """
@@ -187,8 +180,6 @@ def verify_token_reset_password():
                 'message': 'Invalid request'
             }
         )
-    token = request.json.get('token')
-    new_password = request.json.get('new_password')
     data = request.json
     if data is None:
         raise ValueError('Invalid data format')
@@ -197,8 +188,6 @@ def verify_token_reset_password():
     if not token or not new_password:
         raise ValueError('Invalid data format')
     if len(new_password) < 8:
-        raise PasswordIncorrectException(
-            'Password must be at least 8 characters.')
         raise PasswordIncorrectException(
             'Password must be at least 8 characters.')
     auth_service_token = AuthService()
@@ -213,7 +202,7 @@ def verify_token_reset_password():
     })
 
 
-@auth_blueprint.route(rule='/auth/forgot-password', methods=['PATCH'])
+@auth_blueprint.route(rule='/v1/auth/forgot-password', methods=['PATCH'])
 @csrf.exempt
 def forgot_password():
     """ Function for handling forgot password. """
@@ -240,7 +229,7 @@ def forgot_password():
     })
 
 
-@auth_blueprint.route(rule='/auth/otp-verification', methods=["PATCH"])
+@auth_blueprint.route(rule='/v1/auth/otp-verification', methods=["PATCH"])
 @csrf.exempt
 def otp_verification() -> Response:
     """ Function for handling otp verification"""
@@ -257,8 +246,14 @@ def otp_verification() -> Response:
     if not email or not otp or len(otp) != 7 or not otp.isdigit():
         raise ValueError('Invalid data format')
     auth_service_otp = AuthService()
-    session_token, csrf_token = auth_service_otp.verify_otp(
+    result = auth_service_otp.verify_otp(
         email=email, otp=otp)
+    if not result:
+        return set_response(401, {
+            'code': 'unauthorized',
+            'message': 'Unauthorized access.'
+        })
+    session_token, csrf_token = result
     if session_token and csrf_token:
         return set_response(200, {
             'code': 'success',
@@ -270,7 +265,7 @@ def otp_verification() -> Response:
     })
 
 
-@auth_blueprint.route(rule='/auth/generate-otp', methods=["PATCH"])
+@auth_blueprint.route(rule='/v1/auth/generate-otp', methods=["PATCH"])
 @csrf.exempt
 def generate_otp() -> Response:
     """ Function for handling otp generation.
@@ -299,7 +294,7 @@ def generate_otp() -> Response:
     })
 
 
-@auth_blueprint.route('/auth/verify-email/<string:token>', methods=['GET'])
+@auth_blueprint.route('/v1/auth/verify-email/<string:token>', methods=['GET'])
 def verify_email(token: str) -> Response:
     """ Function for handling email verification. """
     if len(token) != 171:
@@ -324,7 +319,7 @@ def verify_email(token: str) -> Response:
     })
 
 
-@auth_blueprint.route(rule='/auth/resend-verification-email', methods=['PATCH'])
+@auth_blueprint.route(rule='/v1/auth/resend-verification-email', methods=['PATCH'])
 @csrf.exempt
 def resend_verification_email() -> Response:
     """ Function for handling email verification. """

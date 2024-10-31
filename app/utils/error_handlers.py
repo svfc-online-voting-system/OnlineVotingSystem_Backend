@@ -2,10 +2,14 @@
 from logging import getLogger
 from os import getenv
 
-from sqlalchemy.exc import DataError, IntegrityError, DatabaseError, OperationalError
-from marshmallow import ValidationError
 from flask_jwt_extended.exceptions import CSRFError
-from flask_jwt_extended.exceptions import NoAuthorizationError, InvalidHeaderError, WrongTokenError, JWTDecodeError, UserClaimsVerificationError
+from flask_jwt_extended.exceptions import (
+    NoAuthorizationError, InvalidHeaderError,
+    WrongTokenError, JWTDecodeError,
+    UserClaimsVerificationError
+)
+from marshmallow import ValidationError
+from sqlalchemy.exc import DataError, IntegrityError, DatabaseError, OperationalError
 
 from app.exception.authorization_exception import (
     EmailNotFoundException, OTPExpiredException,
