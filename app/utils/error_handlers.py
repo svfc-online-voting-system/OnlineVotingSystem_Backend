@@ -1,22 +1,28 @@
 """ This module contains error handlers for the application. """
 from logging import getLogger
 from os import getenv
-from sqlalchemy.exc import DataError, IntegrityError, DatabaseError, OperationalError
-from marshmallow import ValidationError
+
 from flask_jwt_extended.exceptions import CSRFError
-from flask_jwt_extended.exceptions import NoAuthorizationError, InvalidHeaderError, WrongTokenError, JWTDecodeError, UserClaimsVerificationError
-from app.exception.authorization_exception import (EmailNotFoundException, OTPExpiredException,
-                                                   OTPIncorrectException,
-                                                   PasswordResetExpiredException,
-                                                   PasswordResetLinkInvalidException,
-                                                   EmailAlreadyTaken,
-                                                   PasswordIncorrectException,
-                                                   AccountNotVerifiedException)
+from flask_jwt_extended.exceptions import (
+    NoAuthorizationError, InvalidHeaderError,
+    WrongTokenError, JWTDecodeError,
+    UserClaimsVerificationError
+)
+from marshmallow import ValidationError
+from sqlalchemy.exc import DataError, IntegrityError, DatabaseError, OperationalError
+
+from app.exception.authorization_exception import (
+    EmailNotFoundException, OTPExpiredException,
+    OTPIncorrectException, PasswordResetExpiredException,
+    PasswordResetLinkInvalidException, EmailAlreadyTaken,
+    PasswordIncorrectException, AccountNotVerifiedException
+)
 from app.utils.response_utils import set_response
 
 logger = getLogger(__name__)
 ENVIRONMENT = getenv('ENVIRONMENT', 'development')
 is_production = ENVIRONMENT == 'production'
+
 
 def handle_database_errors(error):
     """ This function handles database errors. """
@@ -28,6 +34,7 @@ def handle_database_errors(error):
         })
     raise error
 
+
 def handle_general_exception(error):
     """ This function handles general exceptions. """
     logger.error("General exception: %s", error)
@@ -35,7 +42,6 @@ def handle_general_exception(error):
         'code': 'unexpected_error',
         'message': 'An unexpected error occurred. Please try again later.'
     })
-
 
 
 def handle_validation_error(error):
@@ -147,6 +153,7 @@ def handle_email_already_taken(error):
         })
     raise error
 
+
 def handle_no_authorization_error(error):
     """ This function handles no authorization errors. """
     if isinstance(error, NoAuthorizationError):
@@ -156,6 +163,7 @@ def handle_no_authorization_error(error):
             'message': 'No authorization header provided.'
         })
     raise error
+
 
 def handle_invalid_header_error(error):
     """ This function handles invalid header errors. """
@@ -167,6 +175,7 @@ def handle_invalid_header_error(error):
         })
     raise error
 
+
 def handle_wrong_token_error(error):
     """ This function handles wrong token errors. """
     if isinstance(error, WrongTokenError):
@@ -177,6 +186,7 @@ def handle_wrong_token_error(error):
         })
     raise error
 
+
 def handle_jwt_decode_error(error):
     """ This function handles JWT decode errors. """
     if isinstance(error, JWTDecodeError):
@@ -186,6 +196,7 @@ def handle_jwt_decode_error(error):
             'message': 'Invalid token.'
         })
     raise error
+
 
 def handle_user_claims_verification_error(error):
     """ This function handles user claims verification errors. """

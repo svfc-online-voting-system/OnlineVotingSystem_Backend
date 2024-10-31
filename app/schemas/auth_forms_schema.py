@@ -1,11 +1,12 @@
 """ This module contains the schema validation for the authentication endpoints. """
 from datetime import date
+
 from marshmallow import Schema, fields, post_load, validate, ValidationError
 
 
 class SignUpSchema(Schema):
     """ The Schema represents the shape of data that it expects to receive. """
-    first_name = fields.Str(
+    firstname = fields.Str(
         required=True,
         validate=validate.Length(min=1),
         error_messages={
@@ -13,7 +14,7 @@ class SignUpSchema(Schema):
             'validator_failed': 'First name is invalid'
         }
     )
-    last_name = fields.Str(
+    lastname = fields.Str(
         required=True,
         validate=validate.Length(min=1),
         error_messages={

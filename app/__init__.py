@@ -46,7 +46,8 @@ def create_app():
         level=INFO,
         format='%(asctime)s - %(levelname)s - %(message)s',
         handlers=[
-            FileHandler(path.join(app.root_path, 'logs', 'authentication.log')),
+            FileHandler(path.join(app.root_path,
+                        'logs', 'authentication.log')),
             StreamHandler()
         ]
     )

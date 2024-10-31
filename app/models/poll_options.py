@@ -1,5 +1,6 @@
 """ Class represent the shape of the table poll options that will be used for poll base votes """
-from sqlalchemy import Column, Integer, update, ForeignKey, insert, delete, and_, VARCHAR
+
+from sqlalchemy import Column, Integer, update, ForeignKey, insert, delete, and_, VARCHAR, select
 from sqlalchemy.exc import IntegrityError, DataError, OperationalError, DatabaseError
 from sqlalchemy.orm import relationship
 
@@ -7,63 +8,90 @@ from app.models.base import Base
 from app.utils.engine import get_session
 
 
-class PollOption(Base):
+class PollOption(Base):  # pylint: disable=R0903
+    """ Class to represent the poll options table """
     __tablename__ = 'poll_option'
-    option_id = Column(Integer, primary_key=True, autoincrement=True, nullable=False)
-    event_id = Column(Integer, ForeignKey('vote_types.vote_type_id'), nullable=False)  # Reference to vote_types
+    option_id = Column(
+        Integer, primary_key=True,
+        autoincrement=True, nullable=False)
+    event_id = Column(Integer, ForeignKey(
+        'vote_types.vote_type_id'), nullable=False)  # Reference to vote_types
     option_text = Column(VARCHAR(length=255), nullable=False)
-    
-    voting_event = relationship('VotingEvent', back_populates='poll_option', cascade="all, restrict")
-    
+
+    voting_event = relationship(
+        'VotingEvent', back_populates='poll_option', cascade="all, restrict")
+
+
+class PollOperations:
+    """ Class to handle poll operations """
     @classmethod
-    def add_option(cls, poll_info: dict) -> bool:
-        """ Responsible for adding new option"""
+    def get_poll_options(cls, event_id: int):  # pylint: disable=C0116
         session = get_session()
         try:
-            new_poll_option_stmnt = (
-                insert(cls).values(poll_info)
+            poll_options_statement = (
+                select(PollOption).where(PollOption.event_id == event_id)
             )
-            session.execute(new_poll_option_stmnt)
+            return session.execute(poll_options_statement).fetchall()
+        except (IntegrityError, DataError, OperationalError, DatabaseError) as err:
+            raise err
+        finally:
+            session.close()
+
+    @classmethod
+    def add_option(cls, poll_info: dict):  # pylint: disable=C0116
+        session = get_session()
+        try:
+            new_poll_option_statement = (
+                insert(PollOption).values(poll_info)
+            )
+            session.execute(new_poll_option_statement)
             session.commit()
             return True
         except (IntegrityError, DataError, OperationalError, DatabaseError) as err:
+            session.rollback()
             raise err
+        finally:
+            session.close()
+
     @classmethod
-    def delete_option(cls, poll_info: dict) -> bool:
-        """ Function responsible for deleting an option """
+    def delete_option(cls, poll_info: dict):  # pylint: disable=C0116
         session = get_session()
         try:
-            delete_option_stmnt = (
-                delete(cls)
+            delete_option_statement = (
+                delete(PollOption)
                 .where(
                     and_(
-                        cls.option_id == poll_info.get('option_id'),
-                        cls.event_id == poll_info.get('event_id')
+                        PollOption.option_id == poll_info.get('option_id'),
+                        PollOption.event_id == poll_info.get('event_id')
                     )
                 )
             )
-            session.execute(delete_option_stmnt)
+            session.execute(delete_option_statement)
             session.commit()
             return True
         except (IntegrityError, DataError, OperationalError, DatabaseError) as err:
+            session.rollback()
             raise err
-        pass
+        finally:
+            session.close()
+
     @classmethod
-    def edit_option(cls, poll_info: dict) -> bool:
-        """ Function responsible for editing an option in the poll voting type """
+    def edit_option(cls, poll_info: dict):  # pylint: disable=C0116
         session = get_session()
         try:
-            edit_option_text_stmnt = (
-                update(cls.option_text)
+            edit_option_statement = (
+                update(PollOption)
                 .where(
-                    and_(
-                        cls.event_id == poll_info.get('event_id'),
-                        cls.option_id == poll_info.get('option_id')
-                    )
+                    PollOption.event_id == poll_info.get('event_id'),
+                    PollOption.option_id == poll_info.get('option_id')
                 )
+                .values(option_text=poll_info.get('option_text'))
             )
-            session.execute(edit_option_text_stmnt)
+
+            session.execute(edit_option_statement)
             session.commit()
-            return True
         except (IntegrityError, DataError, OperationalError, DatabaseError) as err:
+            session.rollback()
             raise err
+        finally:
+            session.close()

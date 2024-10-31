@@ -1,62 +1,67 @@
 """ Service routes for poll related endpoints and validation """
+from datetime import datetime
+from uuid import uuid4
 
-from app.models.voting_event import VotingEvent
-
-from app.models.votes import Votes
+from app.models.voting_event import VotingEventOperations
 
 
 class PollService:
     """ Class poll service layer related to poll actions """
     @classmethod
-    def add_new_poll(cls, poll_title: str, user_id) -> int:
+    def add_new_poll(cls, poll_data: dict) -> int:
         """ Responsible for adding new poll """
-        if len(poll_title) > 255:
-            raise ValueError
-        votes = Votes()
-        vote_types = VotingEvent()
-        vote_type_id = vote_types.add_new_vote(poll_title=poll_title.strip(), poll_type='poll')
-        return votes.add_new_votes(user_id, vote_type_id)
+        if poll_data is None:
+            raise ValueError("Poll data cannot be empty")
+        voting_event_uuid = uuid4().bytes
+        new_poll_data = {
+            'uuid': voting_event_uuid,
+            'created_by': poll_data.get('user_id'),
+            'title': poll_data.get('title'),
+            'created_at': datetime.now(),
+            'last_modified_at': poll_data.get('last_modified_at'),
+            'start_date': poll_data.get('start_date'),
+            'end_date': poll_data.get('end_date'),
+            'status': poll_data.get('status'),
+            'approved': False,
+            'event_type': 'poll',
+            'description': poll_data.get('description')
+        }
+        return VotingEventOperations.create_new_voting_event(poll_data=new_poll_data)
     @classmethod
-    def delete_poll(cls, poll_id):
+    def delete_poll(cls, poll_id, user_id):
         """ Responsible for deleting a poll """
-        pass
+        print(poll_id, user_id)
     
     @classmethod
-    def rename_poll_title(cls, poll_id):
+    def rename_poll_title(cls, poll_id, user_id):
         """ Responsible for renaming a poll title """
-        pass
+        print(poll_id, user_id)
     
     @classmethod
-    def get_poll_details(cls, poll_id):
+    def get_poll_details(cls):
         """ Responsible for getting the poll details """
-        pass
+        return 'Poll details'
     
     @classmethod
-    def delete_option(cls, option_id: int):
+    def delete_option(cls, option_id):
         """ Responsible for deleting an option in a poll """
-        pass
     
     @classmethod
-    def add_option(cls, poll_id: int):
+    def add_option(cls, poll_id, user_id, option_text):
         """ Responsible for adding an option in a poll by their id """
-        pass
     
     @classmethod
-    def edit_option(cls, option_id: int):
+    def edit_option(cls, option_id: int, new_option_text: str):
         """ Responsible for editing an option in a poll """
-        pass
     
     @classmethod
-    def cast_poll_vote(cls, vote_info: dict):
+    def cast_poll_vote(cls, event_id, option_id, user_id):
         """ Responsible for casting a vote """
-        pass
     
     @classmethod
     def uncast_poll_vote(cls, vote_info: dict):
         """ Responsible for uncasting a vote """
-        pass
     
     @classmethod
     def change_vote(cls, vote_info: dict):
         """ Responsible for changing a vote """
-        pass

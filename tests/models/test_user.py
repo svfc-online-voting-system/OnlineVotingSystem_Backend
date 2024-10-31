@@ -2,23 +2,23 @@
 
 # pylint: disable=redefined-outer-name
 
-from uuid import uuid4
-from os import urandom
 from base64 import urlsafe_b64encode
 from datetime import datetime, timedelta
+from os import urandom
 from unittest.mock import Mock, patch
+from uuid import uuid4
 
 import pytest
 from bcrypt import gensalt, hashpw
-from sqlalchemy import Null
 from sqlalchemy.exc import IntegrityError
 
-from app.models.user import User, UserOperations
 from app.exception.authorization_exception import EmailNotFoundException
+from app.models.user import User, UserOperations
 
 
 @pytest.fixture
 def mock_session():
+    """Mock the session object."""
     with patch('app.models.user.get_session') as mock:
         session = Mock()
         mock.return_value = session
@@ -55,7 +55,8 @@ def valid_user_data():
 
 # noinspection PyTypeHints,SqlNoDataSourceInspection
 class TestUserOperation:
-    def test_should_create_user_when_input_is_valid(self, mock_session, valid_user_data):
+    """Test for user operations."""
+    def test_create_user_when_input_valid(self, mock_session, valid_user_data):  # pylint: disable=C0103
         """Test creating a new user with valid data."""
         mock_session.commit = Mock()
         mock_user = Mock()
@@ -93,14 +94,14 @@ class TestUserOperation:
         assert user_obj.verified_account == valid_user_data["verified_account"]
         assert isinstance(user_obj.uuid, bytes)
 
-    def test_should_raise_integrity_error_when_email_is_already_taken(self, mock_session, valid_user_data):
+    def test_raise_integrity_error_email_taken(self, mock_session, valid_user_data):  # pylint: disable=C0103
         """Test creating a new user with an email that is already taken."""
         mock_session.add = Mock(side_effect=IntegrityError(
             "statement", "params", "orig"))  # type: ignore
         with pytest.raises(IntegrityError):
             UserOperations.create_new_user(valid_user_data)
 
-    def test_should_raise_integrity_error_when_username_is_already_taken(self, mock_session, valid_user_data):
+    def test_raise_integrity_error_username_taken(self, mock_session, valid_user_data):  # pylint: disable=C0103
         """Test creating a new user with a username that is already taken."""
         mock_session.add = Mock(side_effect=IntegrityError(
             "statement", "params", "orig"))  # type: ignore
@@ -125,12 +126,11 @@ class TestUserOperation:
         "verified_account",
         "uuid"
     ])
-    def test_should_raise_integrity_error_for_each_required_field(self, mock_session, valid_user_data, missing_field):
+    def test_raise_integrity_error_required_field(self, mock_session, valid_user_data, missing_field):  # pylint: disable=C0103
         """Test creating a new user with a missing required field."""
         # Arrange
         valid_user_data[missing_field] = None
-        error_message = f'null value in column "{
-            missing_field}" of relation "user" violates not-null constraint'
+        error_message = f'null value in column "{missing_field}" of relation "user" violates not-null constraint'
         mock_session.commit.side_effect = IntegrityError(
             statement="INSERT INTO user ...",
             params={},
@@ -143,7 +143,7 @@ class TestUserOperation:
         assert "violates not-null constraint" in str(exc_info.value)
         mock_session.rollback.assert_called_once()
 
-    def test_should_return_email_hashed_password_salt_when_user_exists(self, mock_session, valid_user_data):
+    def test_return_email_hashed_password_salt_user_exists(self, mock_session, valid_user_data):  # pylint: disable=C0103
         """Test getting the hashed password and salt for a user that exists."""
         mock_user = User(**valid_user_data)
         mock_session.execute.return_value.first.return_value = mock_user
@@ -155,7 +155,7 @@ class TestUserOperation:
         assert salt == valid_user_data["salt"]
         assert email == valid_user_data["email"]
 
-    def test_should_return_email_not_found_exception_when_user_does_not_exist(self, mock_session):
+    def test_return_email_not_found_exception_not_exist(self, mock_session):  # pylint: disable=C0103
         """Test getting the hashed password and salt for a user that does not exist."""
         mock_session.execute.return_value.first.return_value = None
 
@@ -164,7 +164,7 @@ class TestUserOperation:
 
         assert "Email not found." in str(exc_info.value)
 
-    def test_should_return_false_when_email_is_not_verified(self, mock_session, valid_user_data):
+    def test_return_false_email_not_verified(self, mock_session, valid_user_data):  # pylint: disable=C0103
         """Test checking if a user is verified."""
         mock_session.execute.return_value.first.return_value = User(
             **valid_user_data)
@@ -174,7 +174,7 @@ class TestUserOperation:
 
         assert is_verified is False
 
-    def test_should_return_true_when_email_is_verified(self, mock_session, valid_user_data):
+    def test_return_true_email_verified(self, mock_session, valid_user_data):  # pylint: disable=C0103
         """Test checking if a user is verified."""
         valid_user_data["verified_account"] = True
         mock_session.execute.return_value.first.return_value = User(
@@ -185,13 +185,14 @@ class TestUserOperation:
 
         assert is_verified is True
 
-    def test_non_existent_email_raises_exception(self, mock_session):
+    def test_non_existent_email_raises_exception(self, mock_session):  # pylint: disable=C0103
+        """Test checking if a user is verified."""
         mock_session.execute.return_value.first.return_value = None
     
         with pytest.raises(EmailNotFoundException, match="Email not found."):
             UserOperations.is_email_verified('nonexistent@example.com')
 
-    def test_should_return_true_when_email_exists(self, mock_session, valid_user_data):
+    def test_return_true_email_exists(self, mock_session, valid_user_data):  # pylint: disable=C0103
         """Test checking if an email exists."""
         mock_session.query.return_value.first.return_value = User(
             **valid_user_data)
@@ -200,7 +201,7 @@ class TestUserOperation:
 
         assert email_exists is True
 
-    def test_should_return_false_when_email_does_not_exist(self, mock_session):
+    def test_return_false_email_not_exist(self, mock_session):  # pylint: disable=C0103
         """Test checking if an email exists."""
         mock_session.execute.return_value.first.return_value = None
 
@@ -208,21 +209,17 @@ class TestUserOperation:
         assert email_exists is False
 
 
-class TestPasswordOperations:
+class TestPasswordOperations:  # pylint: disable=R0903
     """Test for password operations."""
-    pass
 
 
-class TestOTPOperations:
+class TestOTPOperations:  # pylint: disable=R0903
     """Test for OTP operations."""
-    pass
 
 
-class TestEmailVerificationOperations:
+class TestEmailVerificationOperations:  # pylint: disable=R0903
     """Test for email verification operations."""
-    pass
 
 
-class TestForgotPasswordOperations:
+class TestForgotPasswordOperations:  # pylint: disable=R0903
     """Test for forgot password operations."""
-    pass
