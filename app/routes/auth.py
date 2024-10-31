@@ -1,26 +1,28 @@
 """ This module contains the routes for the authentication of users. """
 from logging import getLogger
 from flask import Blueprint, request, Response, make_response, jsonify
+
 from jwt import ExpiredSignatureError, InvalidTokenError
 from marshmallow import ValidationError
-from app.extension import csrf
-from app.exception.authorization_exception import (EmailNotFoundException, OTPExpiredException,
-                                                   OTPIncorrectException,
-                                                   PasswordResetExpiredException,
-                                                   PasswordResetLinkInvalidException,
-                                                   EmailAlreadyTaken,
-                                                   PasswordIncorrectException,
-                                                   AccountNotVerifiedException)
+
 from flask_jwt_extended.exceptions import NoAuthorizationError
+
+from app.extension import csrf
+from app.exception.authorization_exception import (
+    EmailNotFoundException, OTPExpiredException, OTPIncorrectException,
+    PasswordResetExpiredException, PasswordResetLinkInvalidException,
+    EmailAlreadyTaken, PasswordIncorrectException, AccountNotVerifiedException
+)
+from app.utils.error_handlers import (
+    handle_account_not_verified_exception, handle_general_exception,
+    handle_password_incorrect_exception, handle_otp_incorrect_exception,
+    handle_otp_expired_exception, handle_email_not_found,
+    handle_password_reset_expired_exception,
+    handle_password_reset_link_invalid_exception, handle_email_already_taken,
+    handle_value_error, handle_database_errors, handle_validation_error,
+    handle_no_authorization_error)
 from app.schemas.auth_forms_schema import SignUpSchema, LoginSchema
 from app.services.auth_service import AuthService
-from app.utils.error_handlers import (handle_account_not_verified_exception, handle_general_exception,
-                                      handle_password_incorrect_exception, handle_otp_incorrect_exception,
-                                      handle_otp_expired_exception, handle_email_not_found,
-                                      handle_password_reset_expired_exception,
-                                      handle_password_reset_link_invalid_exception, handle_email_already_taken,
-                                      handle_value_error, handle_database_errors, handle_validation_error,
-                                      handle_no_authorization_error)
 from app.utils.response_utils import set_response
 
 logger = getLogger(name=__name__)
@@ -30,20 +32,26 @@ auth_service = AuthService()
 auth_blueprint.register_error_handler(Exception, handle_database_errors)
 auth_blueprint.register_error_handler(ValueError, handle_value_error)
 auth_blueprint.register_error_handler(ValidationError, handle_validation_error)
-auth_blueprint.register_error_handler(EmailAlreadyTaken, handle_email_already_taken)
-auth_blueprint.register_error_handler(PasswordIncorrectException,
-                                      handle_password_incorrect_exception)
-auth_blueprint.register_error_handler(AccountNotVerifiedException,
-                                      handle_account_not_verified_exception)
-auth_blueprint.register_error_handler(EmailNotFoundException, handle_email_not_found)
-auth_blueprint.register_error_handler(OTPExpiredException, handle_otp_expired_exception)
-auth_blueprint.register_error_handler(OTPIncorrectException, handle_otp_incorrect_exception)
-auth_blueprint.register_error_handler(PasswordResetExpiredException,
-                                      handle_password_reset_expired_exception)
-auth_blueprint.register_error_handler(PasswordResetLinkInvalidException,
-                                      handle_password_reset_link_invalid_exception)
-auth_blueprint.register_error_handler(NoAuthorizationError, handle_no_authorization_error)
+auth_blueprint.register_error_handler(
+    EmailAlreadyTaken, handle_email_already_taken)
+auth_blueprint.register_error_handler(
+    PasswordIncorrectException, handle_password_incorrect_exception)
+auth_blueprint.register_error_handler(
+    AccountNotVerifiedException, handle_account_not_verified_exception)
+auth_blueprint.register_error_handler(
+    EmailNotFoundException, handle_email_not_found)
+auth_blueprint.register_error_handler(
+    OTPExpiredException, handle_otp_expired_exception)
+auth_blueprint.register_error_handler(
+    OTPIncorrectException, handle_otp_incorrect_exception)
+auth_blueprint.register_error_handler(
+    PasswordResetExpiredException, handle_password_reset_expired_exception)
+auth_blueprint.register_error_handler(
+    PasswordResetLinkInvalidException, handle_password_reset_link_invalid_exception)
+auth_blueprint.register_error_handler(
+    NoAuthorizationError, handle_no_authorization_error)
 auth_blueprint.register_error_handler(Exception, handle_general_exception)
+
 
 @auth_blueprint.route(rule='/auth/create-account', methods=['POST'])
 @csrf.exempt
@@ -68,6 +76,7 @@ def create_account() -> Response:
         'code': 'success',
         'message': 'Open your email for verification.'
     })
+
 
 @auth_blueprint.route(rule='/auth/login', methods=['POST'])
 @csrf.exempt
@@ -97,19 +106,27 @@ def login() -> Response:
         'message': "OTP has been sent to your email."
     })
 
+
 @auth_blueprint.route(rule='/auth/logout', methods=['POST'])
 def logout() -> Response:
     """ This is the route for logging out. """
     response = make_response()
-    response.delete_cookie('Authorization', secure=True, samesite='None', path='/', httponly=True)
-    response.delete_cookie('X-CSRFToken',   secure=True, samesite='None', path='/', httponly=True)
-    response.delete_cookie('session', secure=True, samesite='None', path='/', httponly=True)
+    response.delete_cookie(
+        'Authorization', secure=True,
+        samesite='None', path='/', httponly=True)
+    response.delete_cookie(
+        'X-CSRFToken',   secure=True,
+        samesite='None', path='/', httponly=True)
+    response.delete_cookie(
+        'session', secure=True,
+        samesite='None', path='/', httponly=True)
     res_body = jsonify({
         'code': 'success',
         'message': 'Logged out successfully.'
     })
     response.data = res_body
     return response
+
 
 @auth_blueprint.route(rule='/auth/verify-jwt-identity', methods=['GET'])
 def verify_jwt_identity() -> Response:
@@ -122,27 +139,43 @@ def verify_jwt_identity() -> Response:
         return set_response(401, {'code': 'unauthorized', 'message': 'Unauthorized access.'})
     except ExpiredSignatureError:
         logger.warning("JWT token has expired")
-        return set_response(401,
-                            {'code': 'token_expired',
-                             'message': 'Your session has expired. Please log in again.'}
-                            )
+        return set_response(
+            401,
+            {
+                'code': 'token_expired',
+                'message': 'Your session has expired. Please log in again.'
+            }
+        )
     except InvalidTokenError:
         logger.warning("Invalid JWT token")
-        return set_response(401,
-                            {'code': 'invalid_token',
-                             'message': 'Invalid authentication token.'}
-                            )
+        return set_response(
+            401,
+            {
+                'code': 'invalid_token',
+                'message': 'Invalid authentication token.'
+            }
+        )
+
 
 @auth_blueprint.route(rule='/auth/verify-token-reset-password', methods=['PATCH'])
 @csrf.exempt
 def verify_token_reset_password():
     """ Function for handling token verification for password reset. """
+    if request.json is None:
+        return set_response(
+            400,
+            {
+                'code': 'invalid_request',
+                'message': 'Invalid request'
+            }
+        )
     token = request.json.get('token')
     new_password = request.json.get('new_password')
     if not token or not new_password:
         raise ValueError('Invalid data format')
     if len(new_password) < 8:
-        raise PasswordIncorrectException('Password must be at least 8 characters.')
+        raise PasswordIncorrectException(
+            'Password must be at least 8 characters.')
     auth_service_token = AuthService()
     if auth_service_token.verify_forgot_password_token(token, new_password):
         return set_response(200, {
@@ -154,10 +187,19 @@ def verify_token_reset_password():
         'message': 'Unauthorized access.'
     })
 
+
 @auth_blueprint.route(rule='/auth/forgot-password', methods=['PATCH'])
 @csrf.exempt
 def forgot_password():
     """ Function for handling forgot password. """
+    if request.json is None:
+        return set_response(
+            400,
+            {
+                'code': 'invalid_request',
+                'message': 'Invalid request'
+            }
+        )
     email = request.json.get('email')
     if not email:
         raise ValueError
@@ -172,16 +214,26 @@ def forgot_password():
         'message': 'Unauthorized access.'
     })
 
+
 @auth_blueprint.route(rule='/auth/otp-verification', methods=["PATCH"])
 @csrf.exempt
 def otp_verification() -> Response:
     """ Function for handling otp verification"""
+    if request.json is None:
+        return set_response(
+            400,
+            {
+                'code': 'invalid_request',
+                'message': 'Bad Request: No data provided.'
+            }
+        )
     email = request.json.get('email')
     otp = str(request.json.get('otp_code'))
     if not email or not otp or len(otp) != 7 or not otp.isdigit():
         raise ValueError('Invalid data format')
     auth_service_otp = AuthService()
-    session_token, csrf_token = auth_service_otp.verify_otp(email=email, otp=otp)
+    session_token, csrf_token = auth_service_otp.verify_otp(
+        email=email, otp=otp)
     if session_token and csrf_token:
         return set_response(200, {
             'code': 'success',
@@ -192,12 +244,21 @@ def otp_verification() -> Response:
         'message': 'Unauthorized access.'
     })
 
+
 @auth_blueprint.route(rule='/auth/generate-otp', methods=["PATCH"])
 @csrf.exempt
 def generate_otp() -> Response:
     """ Function for handling otp generation.
     The use-case of this is when the user want to resend
     the otp code that previously sent to the user. """
+    if request.json is None:
+        return set_response(
+            400,
+            {
+                'code': 'invalid_request',
+                'message': 'Bad Request: No data provided.'
+            }
+        )
     email = request.json.get('email')
     if not email:
         raise ValueError('Invalid data format')
@@ -211,6 +272,7 @@ def generate_otp() -> Response:
         'code': 'unauthorized',
         'message': 'Unauthorized access.'
     })
+
 
 @auth_blueprint.route('/auth/verify-email/<string:token>', methods=['GET'])
 def verify_email(token: str) -> Response:
@@ -236,10 +298,19 @@ def verify_email(token: str) -> Response:
         'message': 'Unauthorized access.'
     })
 
+
 @auth_blueprint.route(rule='/auth/resend-verification-email', methods=['PATCH'])
 @csrf.exempt
 def resend_verification_email() -> Response:
     """ Function for handling email verification. """
+    if request.json is None:
+        return set_response(
+            400,
+            {
+                'code': 'invalid_request',
+                'message': 'Bad Request: No data provided.'
+            }
+        )
     email = request.json.get('email')
     if not email:
         raise ValueError('Invalid data format')
