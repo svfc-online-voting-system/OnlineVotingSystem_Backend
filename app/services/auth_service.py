@@ -275,7 +275,7 @@ class EmailVerificationService:
     def verify_email(token):  # pylint: disable=C0116
         result = EmailVerificationOperations.verify_email(token)
         if result != 'email_verified':
-            email, full_name = result
+            email = result
             EmailVerificationService.resend_email_verification(email=email)
         return result
 

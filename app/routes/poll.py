@@ -81,9 +81,8 @@ def get_poll_details():
         return set_response(400, {
             'code': 'invalid_request',
             'message': 'Bad Request: No data provided.'})
-    poll_id = data.get('poll_id')
     poll_service = PollService()
-    details = poll_service.get_poll_details(poll_id=poll_id)
+    details = poll_service.get_poll_details()
     return set_response(200, {
         'code': 'success',
         'message': 'Poll details retrieved successfully.',
