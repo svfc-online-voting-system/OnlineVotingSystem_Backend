@@ -45,29 +45,23 @@ class PollService:
     @classmethod
     def delete_option(cls, option_id):
         """ Responsible for deleting an option in a poll """
-        pass
     
     @classmethod
     def add_option(cls, poll_id, user_id, option_text):
         """ Responsible for adding an option in a poll by their id """
-        pass
     
     @classmethod
     def edit_option(cls, option_id: int, new_option_text: str):
         """ Responsible for editing an option in a poll """
-        pass
     
     @classmethod
     def cast_poll_vote(cls, event_id, option_id, user_id):
         """ Responsible for casting a vote """
-        pass
     
     @classmethod
     def uncast_poll_vote(cls, vote_info: dict):
         """ Responsible for uncasting a vote """
-        pass
     
     @classmethod
     def change_vote(cls, vote_info: dict):
         """ Responsible for changing a vote """
-        pass
