@@ -1,5 +1,4 @@
 """ Class represents each type of voting events and is also the form of data we expect in the database """
-
 from sqlalchemy import (
     Column, Integer, VARCHAR, BINARY, Enum, Text, DateTime, TIMESTAMP, Boolean
 )
@@ -72,3 +71,15 @@ class VotingEventOperations:
     def get_voting_event(cls):  # pylint: disable=C0116
         pass
     
+    
+class AdminOperations:
+    """ Class that will contain all the action the admin user can do. """
+    @classmethod
+    def approve_vote(cls, voting_event_id: int):
+        """ Service that will call and validate the approval of the vote """
+        pass
+    
+    @classmethod
+    def get_all_voting_events(cls):
+        """ Service that will return all the voting events """
+        pass

@@ -2,7 +2,7 @@
 from app.exception.custom_exception import CustomException
 
 
-class VoteDoesNotExists(CustomException):
+class VotingEventDoesNotExists(CustomException):
     """ Exception raised when a vote doesn't exists """
 
     def __init__(self, message="Vote doesn't exists"):

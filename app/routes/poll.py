@@ -103,7 +103,7 @@ def add_option():
     poll_id = data.get('poll_id')
     option_text = data.get('option_text')
     poll_service = PollService()
-    poll_service.get_poll_details(poll_id=poll_id, user_id=get_jwt_identity(), option_text=option_text)
+    poll_service.add_option(poll_id=poll_id, user_id=get_jwt_identity(), option_text=option_text)
     return set_response(201, {
         'code': 'success',
         'message': 'The option has been added.'})
