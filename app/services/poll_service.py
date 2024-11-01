@@ -18,7 +18,7 @@ class PollService:
             'created_by': poll_data.get('user_id'),
             'title': poll_data.get('title'),
             'created_at': datetime.now(),
-            'last_modified_at': poll_data.get('last_modified_at'),
+            'last_modified_at': datetime.now(),
             'start_date': poll_data.get('start_date'),
             'end_date': poll_data.get('end_date'),
             'status': poll_data.get('status'),
