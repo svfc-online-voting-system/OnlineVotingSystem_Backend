@@ -32,6 +32,11 @@ def create_app():
     app.config['JWT_SESSION_COOKIE'] = True
     app.config['JWT_ACCESS_CSRF_HEADER_NAME'] = 'X-CSRF-TOKEN'
     app.config['JWT_CSRF_IN_COOKIES '] = True
+    app.config['CSRF_HEADER_NAME'] = 'X-CSRF-TOKEN'
+    app.config['CSRF_COOKIE_HTTPONLY'] = True
+    app.config['CSRF_COOKIE_SECURE'] = True
+    app.config['CSRF_COOKIE_SAMESITE'] = 'None'
+    app.config['CSRF_COOKIE_NAME'] = 'X-CSRF-TOKEN'
     app.config['MAIL_SERVER'] = getenv('MAIL_SERVER')
     app.config['MAIL_PORT'] = getenv('MAIL_PORT')
     app.config['MAIL_USE_TLS'] = getenv('MAIL_USE_TLS')
