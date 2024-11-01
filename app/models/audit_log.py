@@ -1,7 +1,9 @@
 """ This module contains the AuditLog model """
 from sqlalchemy import Column, Integer, VARCHAR, BINARY, TIMESTAMP
+from sqlalchemy.exc import OperationalError, IntegrityError, DatabaseError, DataError
 
 from app.models.base import Base
+from app.utils.engine import get_session
 
 
 class AuditLog(Base):  # pylint: disable=R0903
@@ -15,3 +17,27 @@ class AuditLog(Base):  # pylint: disable=R0903
     details = Column(VARCHAR(255), nullable=True)
     timestamp = Column(TIMESTAMP, nullable=False)
     
+
+class PollRelatedLogOperations:
+    """Class to handle poll related log operations such as creating, updating, deleting and getting poll related logs"""
+    @staticmethod
+    def create_poll_related_log(log_data: dict) -> None:
+        """Create a new poll related log"""
+        session = get_session()
+        try:
+            new_poll_related_log = AuditLog(
+                uuid=log_data.get('uuid'),
+                user_id=log_data.get('user_id'),
+                event_id=log_data.get('event_id'),
+                action=log_data.get('action'),
+                details=log_data.get('details'),
+                timestamp=log_data.get('timestamp')
+            )
+            session.add(new_poll_related_log)
+            session.commit()
+        except (OperationalError, IntegrityError, DatabaseError, DataError) as err:
+            session.rollback()
+            raise err
+        finally:
+            session.close()
+            

@@ -17,6 +17,7 @@ from app.exception.authorization_exception import (
     PasswordResetLinkInvalidException, EmailAlreadyTaken,
     PasswordIncorrectException, AccountNotVerifiedException
 )
+from app.exception.voting_event_exception import VotingEventDoesNotExists
 from app.utils.response_utils import set_response
 
 logger = getLogger(__name__)
@@ -215,5 +216,15 @@ def handle_csrf_error(error):
         return set_response(403, {
             'code': 'csrf_error',
             'message': 'CSRF token is missing or incorrect.'
+        })
+    raise error
+
+def handle_voting_event_does_not_exists(error):
+    """ This function handles voting event does not exists errors. """
+    if isinstance(error, VotingEventDoesNotExists):
+        logger.error("Voting event does not exists: %s", error)
+        return set_response(404, {
+            'code': 'voting_event_does_not_exists',
+            'message': 'Voting event does not exists.'
         })
     raise error

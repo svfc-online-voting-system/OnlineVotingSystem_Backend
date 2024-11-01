@@ -1,36 +1,22 @@
 """ Service routes for poll related endpoints and validation """
 from datetime import datetime
-from uuid import uuid4
+from uuid import uuid4, UUID
 
+from app.models.audit_log import PollRelatedLogOperations
 from app.models.voting_event import VotingEventOperations
 
 
 class PollService:
-    """ Class poll service layer related to poll actions """
+    """ Wraps the poll service layer """
     @classmethod
-    def add_new_poll(cls, poll_data: dict) -> int:
+    def add_new_poll(cls, poll_data: dict) -> str:
         """ Responsible for adding new poll """
-        if poll_data is None:
-            raise ValueError("Poll data cannot be empty")
-        voting_event_uuid = uuid4().bytes
-        new_poll_data = {
-            'uuid': voting_event_uuid,
-            'created_by': poll_data.get('user_id'),
-            'title': poll_data.get('title'),
-            'created_at': datetime.now(),
-            'last_modified_at': datetime.now(),
-            'start_date': poll_data.get('start_date'),
-            'end_date': poll_data.get('end_date'),
-            'status': poll_data.get('status'),
-            'approved': False,
-            'event_type': 'poll',
-            'description': poll_data.get('description')
-        }
-        return VotingEventOperations.create_new_voting_event(poll_data=new_poll_data)
+        return PollVotingEventService.create_poll_voting_event(poll_data)
+        
     @classmethod
     def delete_poll(cls, poll_id, user_id):
         """ Responsible for deleting a poll """
-        print(poll_id, user_id)
+        return PollVotingEventService.delete_poll_voting_event(poll_id, user_id)
     
     @classmethod
     def rename_poll_title(cls, poll_id, user_id):
@@ -65,3 +51,52 @@ class PollService:
     @classmethod
     def change_vote(cls, vote_info: dict):
         """ Responsible for changing a vote """
+
+
+class PollVotingEventService:
+    @staticmethod
+    def get_poll_voting_event(poll_id: int):
+        """ Responsible for getting the voting event """
+        if not poll_id:
+            raise ValueError("Poll ID cannot be empty")
+        
+        return VotingEventOperations.get_voting_event(event_id=poll_id, event_type='poll')
+        
+    @staticmethod
+    def delete_poll_voting_event(poll_id, user_id):
+        """ Responsible for deleting the voting event """
+        if not poll_id:
+            raise ValueError("Poll ID cannot be empty")
+        if not user_id:
+            raise ValueError("User ID cannot be empty")
+        VotingEventOperations.delete_voting_event(event_id=poll_id, user_id=user_id)
+        
+    @staticmethod
+    def create_poll_voting_event(poll_data: dict) -> str:
+        """ Responsible for creating the voting event """
+        if poll_data is None:
+            raise ValueError("Poll data cannot be empty")
+        status = "upcoming" if poll_data.get('start_date') > datetime.now() else "active"
+        new_poll_data = {
+            'uuid': uuid4().bytes,
+            'created_by': poll_data.get('created_by'),
+            'title': poll_data.get('title'),
+            'created_at': datetime.now(),
+            'last_modified_at': datetime.now(),
+            'start_date': poll_data.get('start_date'),
+            'end_date': poll_data.get('end_date'),
+            'status': status,
+            'approved': False,
+            'event_type': 'poll',
+            'description': poll_data.get('description')
+        }
+        uuid, event_id = VotingEventOperations.create_new_voting_event(poll_data=new_poll_data)
+        PollRelatedLogOperations.create_poll_related_log(log_data={
+            'uuid': uuid4().bytes,
+            'user_id': poll_data.get('created_by'),
+            'event_id': event_id,
+            'action': 'create-poll',
+            'details': 'Poll created',
+            'timestamp': datetime.now()
+        })
+        return str(UUID(bytes=uuid))
