@@ -1,7 +1,7 @@
 """ Class represents each type of voting events and is also the form of data we expect in the database """
 from sqlalchemy import (
     Column, Integer, VARCHAR, BINARY, Enum, Text, DateTime, TIMESTAMP, Boolean, and_,
-    select, update
+    select, update, ForeignKey
 )
 from sqlalchemy.exc import OperationalError, IntegrityError, DatabaseError, DataError
 from sqlalchemy.orm import relationship
@@ -22,13 +22,13 @@ class VotingEvent(Base):  # pylint: disable=R0903
     start_date = Column(DateTime, nullable=False)
     end_date = Column(DateTime, nullable=False)
     status = Column(Enum('upcoming', 'active', 'completed', 'cancelled'), nullable=False)
-    created_by = Column(Integer, nullable=False) # This is a foreign key that we'll reference later
+    created_by = Column(ForeignKey('user.user_id'), nullable=False)
     created_at = Column(TIMESTAMP, nullable=False)
     last_modified_at = Column(TIMESTAMP, nullable=False)
     approved = Column(Boolean, nullable=False)
     is_deleted = Column(Boolean, nullable=False, default=False)
     
-    user = relationship('User', back_populates='voting_event', cascade="all, restrict")
+    user = relationship('User', back_populates='voting_event', cascade="save-update, merge, expunge, refresh-expire")
     
 
 class VotingEventOperations:

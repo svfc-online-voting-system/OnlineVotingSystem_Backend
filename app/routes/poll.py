@@ -3,7 +3,7 @@
 from logging import getLogger
 
 from flask import Blueprint, request
-from flask_jwt_extended import jwt_required, get_jwt_identity
+from flask_jwt_extended import jwt_required, get_jwt_identity, verify_jwt_in_request
 from marshmallow import ValidationError
 from sqlalchemy.exc import IntegrityError, DataError, DatabaseError, OperationalError
 
@@ -28,11 +28,12 @@ poll_blueprint.register_error_handler(IntegrityError, handle_database_errors)
 poll_blueprint.register_error_handler(ValidationError, handle_validation_error)
 poll_blueprint.register_error_handler(VotingEventDoesNotExists, handle_voting_event_does_not_exists)
 
-
 @jwt_required(locations=['cookies', 'headers'])
 @poll_blueprint.route(rule='/v1/user/add-poll', methods=['POST'])
 def add_poll():
     """ Add a new poll for the user """
+    jwt = verify_jwt_in_request()
+    print(jwt)
     data = request.json
     new_poll_voting_event_schema = PollVotingEventSchema()
     if data is None:
@@ -98,7 +99,7 @@ def get_poll_details():
         'code': 'success',
         'message': 'Poll details retrieved successfully.',
         'data': details})
-    
+
 
 
 @poll_blueprint.route(rule='/v1/user/add-option', methods=['POST'])

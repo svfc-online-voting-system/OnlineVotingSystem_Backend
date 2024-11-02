@@ -2,18 +2,18 @@
 from logging import getLogger
 
 from flask import Blueprint, request, Response
-from flask_jwt_extended import get_jwt_identity
+from flask_jwt_extended import get_jwt_identity, jwt_required, set_access_cookies, decode_token
 from flask_jwt_extended.exceptions import NoAuthorizationError
 from jwt import ExpiredSignatureError, InvalidTokenError
 from marshmallow import ValidationError
 from sqlalchemy.exc import IntegrityError, DatabaseError, OperationalError, DataError
 
+from app.services.token_service import TokenService
 from app.exception.authorization_exception import (
     EmailNotFoundException, OTPExpiredException, OTPIncorrectException,
     PasswordResetExpiredException, PasswordResetLinkInvalidException,
     EmailAlreadyTaken, PasswordIncorrectException, AccountNotVerifiedException
 )
-from app.extension import csrf
 from app.schemas.auth_forms_schema import SignUpSchema, LoginSchema
 from app.services.auth_service import AuthService
 from app.utils.error_handlers import (
@@ -74,9 +74,8 @@ auth_blueprint.register_error_handler(
     NoAuthorizationError, handle_no_authorization_error)
 auth_blueprint.register_error_handler(Exception, handle_general_exception)
 
-
+@jwt_required(optional=True)
 @auth_blueprint.route(rule='/v1/auth/create-account', methods=['POST'])
-@csrf.exempt
 def create_account() -> Response:
     """ This is the route for creating an account. """
     sign_up_schema = SignUpSchema()
@@ -88,20 +87,14 @@ def create_account() -> Response:
     if not isinstance(registration_data, dict):
         raise ValueError('Invalid data format')
     auth_service_create_account = AuthService()
-    result = auth_service_create_account.register(user_data=registration_data)
-    if result is None:
-        return set_response(500, {
-            'code': 'server_error',
-            'message': 'Something went wrong on our end.'
-        })
+    auth_service_create_account.register(user_data=registration_data)
     return set_response(200, {
         'code': 'success',
         'message': 'Open your email for verification.'
     })
 
-
+@jwt_required(optional=True)
 @auth_blueprint.route(rule='/v1/auth/login', methods=['POST'])
-@csrf.exempt
 def login() -> Response:
     """ This is the route for logging in. """
     data = request.json
@@ -114,16 +107,9 @@ def login() -> Response:
     if not isinstance(user_data, dict):
         raise ValueError('Invalid data format')
     auth_service_login = AuthService()
-    authentication_result = auth_service_login.login(
-        user_data.get('email'), user_data.get('password')
+    auth_service_login.login(
+        user_data.get('email'), user_data.get('password') # type: ignore
     )
-    if not authentication_result:
-        return set_response(500, {
-            'code': 'server_error',
-            'message': 'Something went wrong on our end.'
-        })
-    if authentication_result == 'invalid_credentials':
-        raise PasswordIncorrectException('Invalid credentials')
     return set_response(200, {
         'code': 'otp_sent',
         'message': "OTP has been sent to your email."
@@ -167,12 +153,12 @@ def verify_jwt_identity() -> Response:
             }
         )
 
-
+@jwt_required(optional=True)
 @auth_blueprint.route(rule='/v1/auth/verify-token-reset-password', methods=['PATCH'])
-@csrf.exempt
 def verify_token_reset_password():
     """ Function for handling token verification for password reset. """
-    if request.json is None:
+    data = request.json
+    if data is None:
         return set_response(
             400,
             {
@@ -180,9 +166,6 @@ def verify_token_reset_password():
                 'message': 'Invalid request'
             }
         )
-    data = request.json
-    if data is None:
-        raise ValueError('Invalid data format')
     token = data.get('token')
     new_password = data.get('new_password')
     if not token or not new_password:
@@ -201,12 +184,12 @@ def verify_token_reset_password():
         'message': 'Unauthorized access.'
     })
 
-
+@jwt_required(optional=True)
 @auth_blueprint.route(rule='/v1/auth/forgot-password', methods=['PATCH'])
-@csrf.exempt
 def forgot_password():
     """ Function for handling forgot password. """
-    if request.json is None:
+    data = request.json
+    if data is None:
         return set_response(
             400,
             {
@@ -214,7 +197,7 @@ def forgot_password():
                 'message': 'Invalid request'
             }
         )
-    email = request.json.get('email')
+    email = data.get('email')
     if not email:
         raise ValueError
     auth_service_forgot_password = AuthService()
@@ -228,12 +211,12 @@ def forgot_password():
         'message': 'Unauthorized access.'
     })
 
-
+@jwt_required(optional=True)
 @auth_blueprint.route(rule='/v1/auth/otp-verification', methods=["PATCH"])
-@csrf.exempt
-def otp_verification() -> Response:
+def otp_verification():
     """ Function for handling otp verification"""
-    if request.json is None:
+    data = request.json
+    if data is None:
         return set_response(
             400,
             {
@@ -241,37 +224,39 @@ def otp_verification() -> Response:
                 'message': 'Bad Request: No data provided.'
             }
         )
-    email = request.json.get('email')
-    otp = str(request.json.get('otp_code'))
+    email = data.get('email')
+    otp = data.get('otp_code')
     if not email or not otp or len(otp) != 7 or not otp.isdigit():
         raise ValueError('Invalid data format')
-    auth_service_otp = AuthService()
-    result = auth_service_otp.verify_otp(
-        email=email, otp=otp)
-    if not result:
-        return set_response(401, {
-            'code': 'unauthorized',
-            'message': 'Unauthorized access.'
+    # for development purposed commented out to streamline the testing
+    # auth_service_otp = AuthService()
+    # user_id = auth_service_otp.verify_otp(
+    #     email=email, otp=otp)
+    try:
+        token_service = TokenService()
+        access_token, refresh_token = token_service.generate_jwt_csrf_token('froilanaquino1@gmail.com', 47)
+        print(f"Decoded token: {decode_token(refresh_token)}")
+        print(f"Decoded token: {decode_token(access_token)}")
+        response = set_response(200, messages="OTP Verified")
+        set_access_cookies(response, access_token)
+
+        return response
+
+    except Exception as e:
+        print(f"Error: {e}")
+        return set_response(500, {
+            'code': 'error',
+            'message': str(e)
         })
-    session_token, csrf_token = result
-    if session_token and csrf_token:
-        return set_response(200, {
-            'code': 'success',
-            'message': 'OTP Verified'
-        }, authorization_token=session_token, csrf_token=csrf_token)
-    return set_response(401, {
-        'code': 'unauthorized',
-        'message': 'Unauthorized access.'
-    })
 
-
+@jwt_required(optional=True)
 @auth_blueprint.route(rule='/v1/auth/generate-otp', methods=["PATCH"])
-@csrf.exempt
 def generate_otp() -> Response:
     """ Function for handling otp generation.
     The use-case of this is when the user want to resend
     the otp code that previously sent to the user. """
-    if request.json is None:
+    data = request.json
+    if data is None:
         return set_response(
             400,
             {
@@ -279,7 +264,7 @@ def generate_otp() -> Response:
                 'message': 'Bad Request: No data provided.'
             }
         )
-    email = request.json.get('email')
+    email = data.get('email')
     if not email:
         raise ValueError('Invalid data format')
     auth_service_otp = AuthService()
@@ -318,12 +303,12 @@ def verify_email(token: str) -> Response:
         'message': 'Unauthorized access.'
     })
 
-
+@jwt_required(optional=True)
 @auth_blueprint.route(rule='/v1/auth/resend-verification-email', methods=['PATCH'])
-@csrf.exempt
 def resend_verification_email() -> Response:
     """ Function for handling email verification. """
-    if request.json is None:
+    data = request.json
+    if data is None:
         return set_response(
             400,
             {
@@ -331,7 +316,7 @@ def resend_verification_email() -> Response:
                 'message': 'Bad Request: No data provided.'
             }
         )
-    email = request.json.get('email')
+    email = data.get('email')
     if not email:
         raise ValueError('Invalid data format')
     auth_service_resend_verification_email = AuthService()

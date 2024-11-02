@@ -220,7 +220,7 @@ def handle_csrf_error(error):
     raise error
 
 def handle_voting_event_does_not_exists(error):
-    """ This function handles voting event does not exists errors. """
+    """ This function handles voting event does not exist errors. """
     if isinstance(error, VotingEventDoesNotExists):
         logger.error("Voting event does not exists: %s", error)
         return set_response(404, {

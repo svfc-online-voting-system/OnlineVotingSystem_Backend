@@ -22,8 +22,9 @@
 """
 from datetime import datetime
 
-from sqlalchemy import Column, Integer, Date, select, update, Boolean, VARCHAR, BINARY
+from sqlalchemy import Column, Integer, Date, select, update, Boolean, VARCHAR, BINARY, DateTime
 from sqlalchemy.exc import IntegrityError, DataError, OperationalError, DatabaseError
+from sqlalchemy.orm import relationship
 from sqlalchemy.sql import expression
 
 from app.exception.authorization_exception import (
@@ -56,14 +57,20 @@ class User(Base):  # pylint: disable=R0903
     reset_token = Column(VARCHAR(175), nullable=True)
     reset_expiry = Column(Date, nullable=True)
     verification_token = Column(VARCHAR(175), nullable=True)
-    verification_expiry = Column(Date, nullable=True)
+    verification_expiry = Column(DateTime, nullable=True)
     deleted_at = Column(Date, nullable=True)
+
+    voting_event = relationship(
+        'VotingEvent',
+        back_populates='user',
+        cascade="save-update, merge, expunge, refresh-expire"
+    )
 
 
 class UserOperations:
     """ Class responsible for operation like creating a new user, login, etc. """
     @staticmethod
-    def create_new_user(user_data: dict) -> int:  # pylint: disable=C0116
+    def create_new_user(user_data: dict):  # pylint: disable=C0116
         session = get_session()
         try:
             new_user = User(
@@ -83,7 +90,6 @@ class UserOperations:
             )
             session.add(new_user)
             session.commit()
-            return new_user.user_id
         except (DataError, IntegrityError, OperationalError, DatabaseError) as e:
             session.rollback()
             raise e
@@ -95,17 +101,14 @@ class UserOperations:
         session = get_session()
         try:
             user = session.execute(
-                select(User)
-                .filter(User.email == email)
+                select(User.hashed_password, User.verified_account)
+                .where(User.email == email)
             ).first()
             if user is None:
                 raise EmailNotFoundException("Email not found.")
-            email, hashed_password, salt = user.email, user.hashed_password, user.salt
-            return (
-                email,
-                hashed_password,
-                salt
-            )
+            hashed_password, verified_account = user
+            return hashed_password, verified_account
+
         except (OperationalError, DatabaseError) as e:
             raise e
         finally:
@@ -116,11 +119,12 @@ class UserOperations:
         session = get_session()
         try:
             user = session.execute(
-                select(User)
+                select(User.verified_account)
                 .where(User.email == email)).first()
             if user is None:
                 raise EmailNotFoundException("Email not found.")
-            return user.verified_account
+            verified_account = user
+            return verified_account
         except OperationalError as e:
             raise e
         finally:
@@ -149,16 +153,16 @@ class PasswordOperations:
         try:
             user = session.execute(
                 select(User.user_id, User.reset_expiry)
-                .where(User.reset_token == reset_token)).first()
+                .where(User.reset_token == reset_token)).scalars().first()
             if user is None:
                 raise PasswordResetLinkInvalidException("Invalid reset token.")
-            if user[1] < datetime.now():
-                query = (
+            user_id, reset_expiry = user
+            if reset_expiry < datetime.now():
+                session.execute(
                     update(User)
-                    .where(User.user_id == user[0])
+                    .where(User.user_id == user_id)
                     .values(reset_token=None, reset_expiry=None)
                 )
-                session.execute(query)
                 session.commit()
                 raise PasswordResetExpiredException(
                     "Password reset link has expired.")
@@ -195,14 +199,12 @@ class OtpOperations:
     def set_otp(email, otp, expiry):  # pylint: disable=C0116
         session = get_session()
         try:
-            query = (
+            session.execute(
                 update(User)
                 .where(User.email == email)
                 .values(otp_secret=otp, otp_expiry=expiry)
             )
-            session.execute(query)
             session.commit()
-            return 'otp_set'
         except (OperationalError, DatabaseError, DataError) as e:
             session.rollback()
             raise e
@@ -216,9 +218,7 @@ class OtpOperations:
             result = session.execute(
                 select(User.otp_secret, User.otp_expiry, User.user_id)
                 .where(User.email == email)).first()
-            if result is None:
-                raise EmailNotFoundException("Email not found.")
-            return result.otp_secret, result.otp_expiry, result.user_id
+            return result.otp_secret, result.otp_expiry, result.user_id # type: ignore
         except (OperationalError, DatabaseError) as e:
             raise e
         finally:
@@ -227,7 +227,7 @@ class OtpOperations:
     @staticmethod
     def invalidate_otp(email: str):
         """ Function to invalidate the OTP that is currently set in the database
-        in case of an expired otp is being input
+        in case of an expired otp is being the input
         """
         session = get_session()
         try:
@@ -237,7 +237,6 @@ class OtpOperations:
                 .values(otp_secret=None, otp_expiry=None)
             )
             session.commit()
-            return 'otp_invalidated'
         except (OperationalError, DatabaseError) as e:
             session.rollback()
             raise e
@@ -251,26 +250,39 @@ class EmailVerificationOperations:
     def verify_email(token):  # pylint: disable=C0116
         session = get_session()
         try:
-            user = session.execute(
+            result = session.execute(
                 select(
                     User.verification_expiry,
                     User.verification_token,
                     User.email
                 ).where(User.verification_token == token)
-            ).scalars().first()
-            if user is None:
+            ).first()
+
+            if result is None:
                 raise ValueError("Invalid token.")
-            if user.verification_expiry < datetime.now():
-                user.verification_token = None
-                user.verification_expiry = None
-                email = user.email
+
+            verification_expiry, verification_token, email = result
+
+            if verification_expiry < datetime.now():
+                session.execute(
+                    update(User)
+                    .where(User.email == email)
+                    .values(verification_token=None, verification_expiry=None)
+                )
                 session.commit()
                 return email
-            user.verified_account = True
-            user.verification_token = None
-            user.verification_expiry = None
+
+            if verification_token != token:
+                raise ValueError("Invalid token.")
+
+            session.execute(
+                update(User)
+                .where(User.email == email)
+                .values(verified_account=True, verification_token=None, verification_expiry=None)
+            )
             session.commit()
             return 'email_verified'
+
         except Exception as e:
             session.rollback()
             raise e
@@ -281,22 +293,13 @@ class EmailVerificationOperations:
     def resend_email_verification(email, verification_expiry, verification_token):  # pylint: disable=C0116
         session = get_session()
         try:
-            query_user_id = (
-                select(User.user_id)
-                .where(User.email == email)
-            )
-            user_id = session.execute(query_user_id)
-            if user_id is None:
-                raise EmailNotFoundException("Email not found.")
-            query = (
+            session.execute(
                 update(User)
-                .where(User.user_id == user_id)
+                .where(User.email == email)
                 .values(verification_token=verification_token,
                         verification_expiry=verification_expiry)
             )
-            session.execute(query)
             session.commit()
-            return 'sent'
         except (EmailNotFoundException, DataError, OperationalError) as e:
             session.rollback()
             raise e
