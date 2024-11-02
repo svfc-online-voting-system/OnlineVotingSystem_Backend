@@ -18,17 +18,12 @@ def set_response(status_code, messages, **kwargs):
     response.headers['Access-Control-Allow-Credentials'] = 'true'
     response.headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS, GET, DELETE, PUT'
     response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
-    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
-    response.headers["Pragma"] = "no-cache"
-    response.headers["Expires"] = "0"
 
-    # if 'action' in kwargs and kwargs['action'] == 'logout':
-    #     response.delete_cookie(
-    #         'Authorization', secure=True, samesite='None', path='/', httponly=True)
-    #     response.delete_cookie(
-    #         'X-CSRFToken',   secure=True, samesite='None', path='/', httponly=True)
-    #     response.delete_cookie(
-    #         'session', secure=True, samesite='None', path='/', httponly=True)
+    if 'action' in kwargs and kwargs['action'] == 'logout':
+        response.delete_cookie(
+            'Authorization', secure=True, samesite='None', path='/', httponly=True)
+        response.delete_cookie(
+            'X-CSRF-TOKEN',   secure=True, samesite='None', path='/', httponly=True)
     response_data = json.dumps(messages)
     response.data = response_data
     response.status_code = status_code

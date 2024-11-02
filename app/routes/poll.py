@@ -3,7 +3,8 @@
 from logging import getLogger
 
 from flask import Blueprint, request
-from flask_jwt_extended import jwt_required, get_jwt_identity, verify_jwt_in_request
+from flask_jwt_extended import jwt_required, get_jwt_identity, verify_jwt_in_request, get_current_user
+from flask_jwt_extended.exceptions import NoAuthorizationError, CSRFError
 from marshmallow import ValidationError
 from sqlalchemy.exc import IntegrityError, DataError, DatabaseError, OperationalError
 
@@ -11,7 +12,8 @@ from app.exception.voting_event_exception import VotingEventDoesNotExists
 from app.schemas.poll_voting_event_schema import PollVotingEventSchema
 from app.services.poll_service import PollService
 from app.utils.error_handlers import (
-    handle_database_errors, handle_validation_error, handle_general_exception, handle_value_error,
+    handle_csrf_error, handle_database_errors, handle_no_authorization_error,
+    handle_validation_error, handle_general_exception, handle_value_error,
     handle_voting_event_does_not_exists
 )
 from app.utils.response_utils import set_response
@@ -19,6 +21,10 @@ from app.utils.response_utils import set_response
 logger = getLogger(name=__name__)
 poll_blueprint = Blueprint('poll', __name__)
 
+poll_blueprint.register_error_handler(
+    NoAuthorizationError, handle_no_authorization_error
+)
+poll_blueprint.register_error_handler(CSRFError, handle_csrf_error)
 poll_blueprint.register_error_handler(DataError, handle_database_errors)
 poll_blueprint.register_error_handler(DatabaseError, handle_database_errors)
 poll_blueprint.register_error_handler(OperationalError, handle_database_errors)
@@ -26,14 +32,17 @@ poll_blueprint.register_error_handler(Exception, handle_general_exception)
 poll_blueprint.register_error_handler(ValueError, handle_value_error)
 poll_blueprint.register_error_handler(IntegrityError, handle_database_errors)
 poll_blueprint.register_error_handler(ValidationError, handle_validation_error)
-poll_blueprint.register_error_handler(VotingEventDoesNotExists, handle_voting_event_does_not_exists)
+poll_blueprint.register_error_handler(
+    VotingEventDoesNotExists,
+    handle_voting_event_does_not_exists
+)
 
-@jwt_required(locations=['cookies', 'headers'])
+@jwt_required(optional=False)
 @poll_blueprint.route(rule='/v1/user/add-poll', methods=['POST'])
 def add_poll():
     """ Add a new poll for the user """
-    jwt = verify_jwt_in_request()
-    print(jwt)
+    verify_jwt_in_request()
+    get_current_user()
     data = request.json
     new_poll_voting_event_schema = PollVotingEventSchema()
     if data is None:
@@ -41,7 +50,7 @@ def add_poll():
             'code': 'invalid_request',
             'message': 'Bad Request: No data provided.'})
     new_poll_voting_data = new_poll_voting_event_schema.load(data)
-    new_poll_voting_data['created_by'] = get_jwt_identity().get('user_id')
+    new_poll_voting_data['created_by'] = get_jwt_identity().get('user_id') # type: ignore
     poll_service = PollService()
     poll_service.add_new_poll(new_poll_voting_data)
     return set_response(201, {

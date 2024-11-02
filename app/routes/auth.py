@@ -228,13 +228,12 @@ def otp_verification():
     otp = data.get('otp_code')
     if not email or not otp or len(otp) != 7 or not otp.isdigit():
         raise ValueError('Invalid data format')
-    # for development purposed commented out to streamline the testing
-    # auth_service_otp = AuthService()
-    # user_id = auth_service_otp.verify_otp(
-    #     email=email, otp=otp)
+    auth_service_otp = AuthService()
+    user_id = auth_service_otp.verify_otp(
+        email=email, otp=otp)
     try:
         token_service = TokenService()
-        access_token, refresh_token = token_service.generate_jwt_csrf_token('froilanaquino1@gmail.com', 47)
+        access_token, refresh_token = token_service.generate_jwt_csrf_token(email=email, user_id=user_id)
         print(f"Decoded token: {decode_token(refresh_token)}")
         print(f"Decoded token: {decode_token(access_token)}")
         response = set_response(200, messages="OTP Verified")
@@ -242,7 +241,7 @@ def otp_verification():
 
         return response
 
-    except Exception as e:
+    except Exception as e:  # pylint: disable=W0718
         print(f"Error: {e}")
         return set_response(500, {
             'code': 'error',

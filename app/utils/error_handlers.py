@@ -6,7 +6,9 @@ from flask_jwt_extended.exceptions import CSRFError
 from flask_jwt_extended.exceptions import (
     NoAuthorizationError, InvalidHeaderError,
     WrongTokenError, JWTDecodeError,
-    UserClaimsVerificationError
+    UserClaimsVerificationError,
+    CSRFError, InvalidQueryParamError, FreshTokenRequired,
+    RevokedTokenError, UserLookupError
 )
 from marshmallow import ValidationError
 from sqlalchemy.exc import DataError, IntegrityError, DatabaseError, OperationalError
@@ -38,6 +40,8 @@ def handle_database_errors(error):
 
 def handle_general_exception(error):
     """ This function handles general exceptions. """
+    root_cause = getattr(error, '__cause__', error)
+    print(root_cause)
     logger.error("General exception: %s", error)
     return set_response(500, {
         'code': 'unexpected_error',
@@ -226,5 +230,45 @@ def handle_voting_event_does_not_exists(error):
         return set_response(404, {
             'code': 'voting_event_does_not_exists',
             'message': 'Voting event does not exists.'
+        })
+    raise error
+
+def handle_invalid_query_param_error(error):
+    """ This function handles invalid query param errors. """
+    if isinstance(error, InvalidQueryParamError):
+        logger.error("Invalid query param error: %s", error)
+        return set_response(400, {
+            'code': 'invalid_query_param',
+            'message': 'Invalid query parameter.'
+        })
+    raise error
+
+def handle_fresh_token_required(error):
+    """ This function handles fresh token required errors. """
+    if isinstance(error, FreshTokenRequired):
+        logger.error("Fresh token required error: %s", error)
+        return set_response(401, {
+            'code': 'fresh_token_required',
+            'message': 'Fresh token required.'
+        })
+    raise error
+
+def handle_revoked_token_error(error):
+    """ This function handles revoked token errors. """
+    if isinstance(error, RevokedTokenError):
+        logger.error("Revoked token error: %s", error)
+        return set_response(401, {
+            'code': 'revoked_token',
+            'message': 'Token has been revoked.'
+        })
+    raise error
+
+def handle_user_lookup_error(error):
+    """ This function handles user lookup errors. """
+    if isinstance(error, UserLookupError):
+        logger.error("User lookup error: %s", error)
+        return set_response(404, {
+            'code': 'user_lookup_error',
+            'message': 'User not found.'
         })
     raise error

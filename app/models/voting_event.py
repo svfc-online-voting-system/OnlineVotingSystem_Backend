@@ -27,9 +27,9 @@ class VotingEvent(Base):  # pylint: disable=R0903
     last_modified_at = Column(TIMESTAMP, nullable=False)
     approved = Column(Boolean, nullable=False)
     is_deleted = Column(Boolean, nullable=False, default=False)
-    
+
     user = relationship('User', back_populates='voting_event', cascade="save-update, merge, expunge, refresh-expire")
-    
+
 
 class VotingEventOperations:
     """
@@ -55,17 +55,17 @@ class VotingEventOperations:
             )
             session.add(new_voting_event)
             session.commit()
-            return new_voting_event.uuid, new_voting_event.event_id
+            return new_voting_event.event_id
         except (OperationalError, IntegrityError, DatabaseError, DataError) as err:
             session.rollback()
             raise err
         finally:
             session.close()
-    
+
     @classmethod
     def update_voting_event(cls):  # pylint: disable=C0116
         pass
-    
+
     @classmethod
     def delete_voting_event(cls, event_id, user_id):  # pylint: disable=C0116
         session = get_session()
@@ -84,7 +84,7 @@ class VotingEventOperations:
             raise err
         finally:
             session.close()
-    
+
     @classmethod
     def get_voting_event(cls, event_id, event_type):  # pylint: disable=C0116
         session = get_session()
@@ -105,15 +105,15 @@ class VotingEventOperations:
         if voting_event is None:
             raise VotingEventDoesNotExists("Voting event does not exists")
         return voting_event
-    
-    
+
+
 class AdminOperations:
     """ Class that will contain all the action the admin user can do. """
     @classmethod
     def approve_vote(cls, voting_event_id: int):
         """ Service that will call and validate the approval of the vote """
-        
-    
+
+
     @classmethod
     def get_all_voting_events(cls):
         """ Service that will return all the voting events """
