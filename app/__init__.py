@@ -10,14 +10,23 @@ Returns:
 	Flask: The Flask app instance.
 """
 
-
-from os import getenv, makedirs, path
 from logging import FileHandler, StreamHandler, basicConfig, getLogger, INFO
+from os import getenv, makedirs, path
+
 from flask import Flask
 from flask_jwt_extended import JWTManager
+from flask_jwt_extended.exceptions import CSRFError
+from marshmallow import ValidationError
+from sqlalchemy.exc import IntegrityError, DataError, DatabaseError, OperationalError
+
 from app.extension import mail
 from app.routes.auth import auth_blueprint
 from app.routes.poll import poll_blueprint
+from app.utils.error_handlers import (
+    handle_csrf_error, handle_database_errors, handle_no_authorization_error,
+    handle_validation_error, handle_general_exception, handle_value_error,
+    handle_voting_event_does_not_exists
+)
 
 
 def create_app():
@@ -67,5 +76,13 @@ def create_app():
     )
     app.register_blueprint(auth_blueprint)
     app.register_blueprint(poll_blueprint)
+    app.register_error_handler(CSRFError, handle_csrf_error)
+    app.register_error_handler(DataError, handle_database_errors)
+    app.register_error_handler(DatabaseError, handle_database_errors)
+    app.register_error_handler(OperationalError, handle_database_errors)
+    app.register_error_handler(Exception, handle_general_exception)
+    app.register_error_handler(ValueError, handle_value_error)
+    app.register_error_handler(IntegrityError, handle_database_errors)
+    app.register_error_handler(ValidationError, handle_validation_error)
     getLogger()
     return app

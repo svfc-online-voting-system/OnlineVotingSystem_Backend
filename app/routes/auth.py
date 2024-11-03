@@ -5,10 +5,7 @@ from flask import Blueprint, request, Response
 from flask_jwt_extended import get_jwt_identity, jwt_required, set_access_cookies, decode_token
 from flask_jwt_extended.exceptions import NoAuthorizationError
 from jwt import ExpiredSignatureError, InvalidTokenError
-from marshmallow import ValidationError
-from sqlalchemy.exc import IntegrityError, DatabaseError, OperationalError, DataError
 
-from app.services.token_service import TokenService
 from app.exception.authorization_exception import (
     EmailNotFoundException, OTPExpiredException, OTPIncorrectException,
     PasswordResetExpiredException, PasswordResetLinkInvalidException,
@@ -16,13 +13,13 @@ from app.exception.authorization_exception import (
 )
 from app.schemas.auth_forms_schema import SignUpSchema, LoginSchema
 from app.services.auth_service import AuthService
+from app.services.token_service import TokenService
 from app.utils.error_handlers import (
     handle_account_not_verified_exception, handle_general_exception,
     handle_password_incorrect_exception, handle_otp_incorrect_exception,
     handle_otp_expired_exception, handle_email_not_found,
     handle_password_reset_expired_exception,
     handle_password_reset_link_invalid_exception, handle_email_already_taken,
-    handle_value_error, handle_database_errors, handle_validation_error,
     handle_no_authorization_error)
 from app.utils.response_utils import set_response
 
@@ -30,14 +27,6 @@ logger = getLogger(name=__name__)
 auth_blueprint = Blueprint('auth', __name__)
 auth_service = AuthService()
 
-auth_blueprint.register_error_handler(IntegrityError, handle_database_errors)
-auth_blueprint.register_error_handler(DataError, handle_database_errors)
-auth_blueprint.register_error_handler(DatabaseError, handle_database_errors)
-auth_blueprint.register_error_handler(OperationalError, handle_database_errors)
-auth_blueprint.register_error_handler(ValueError, handle_value_error)
-auth_blueprint.register_error_handler(ValidationError, handle_validation_error)
-auth_blueprint.register_error_handler(
-    EmailAlreadyTaken, handle_email_already_taken)
 auth_blueprint.register_error_handler(
     PasswordIncorrectException, handle_password_incorrect_exception)
 auth_blueprint.register_error_handler(
@@ -53,23 +42,7 @@ auth_blueprint.register_error_handler(
 auth_blueprint.register_error_handler(
     PasswordResetLinkInvalidException, handle_password_reset_link_invalid_exception)
 auth_blueprint.register_error_handler(
-    NoAuthorizationError, handle_no_authorization_error)
-auth_blueprint.register_error_handler(
     EmailAlreadyTaken, handle_email_already_taken)
-auth_blueprint.register_error_handler(
-    PasswordIncorrectException, handle_password_incorrect_exception)
-auth_blueprint.register_error_handler(
-    AccountNotVerifiedException, handle_account_not_verified_exception)
-auth_blueprint.register_error_handler(
-    EmailNotFoundException, handle_email_not_found)
-auth_blueprint.register_error_handler(
-    OTPExpiredException, handle_otp_expired_exception)
-auth_blueprint.register_error_handler(
-    OTPIncorrectException, handle_otp_incorrect_exception)
-auth_blueprint.register_error_handler(
-    PasswordResetExpiredException, handle_password_reset_expired_exception)
-auth_blueprint.register_error_handler(
-    PasswordResetLinkInvalidException, handle_password_reset_link_invalid_exception)
 auth_blueprint.register_error_handler(
     NoAuthorizationError, handle_no_authorization_error)
 auth_blueprint.register_error_handler(Exception, handle_general_exception)

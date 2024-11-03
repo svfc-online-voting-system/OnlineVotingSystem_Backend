@@ -1,20 +1,17 @@
 """ This is the routes for admin actions. """
-from os import getenv
 from logging import getLogger
+from os import getenv
 
-from flask_jwt_extended import jwt_required
 from flask import Blueprint, request
+from flask_jwt_extended import jwt_required
 
-from app.utils.response_utils import set_response
 from app.services.admin import Admin
-from app.utils.error_handlers import handle_general_exception
+from app.utils.response_utils import set_response
 
 logger = getLogger(name=__name__)
 admin_action = Blueprint('admin_action', __name__)
 ENVIRONMENT = getenv('ENVIRONMENT', 'development')
 is_production = ENVIRONMENT == 'production'
-
-admin_action.register_error_handler(Exception, handle_general_exception)
 
 
 @jwt_required(locations=['cookies', 'headers'])
