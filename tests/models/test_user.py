@@ -1,6 +1,7 @@
 """Tests for the User model."""
 
 # pylint: disable=redefined-outer-name
+# pylint: disable=C0103
 
 from base64 import urlsafe_b64encode
 from datetime import datetime, timedelta
