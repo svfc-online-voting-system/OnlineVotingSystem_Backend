@@ -6,7 +6,7 @@ from flask import Blueprint, request
 from flask_jwt_extended import jwt_required
 
 from app.services.admin import Admin
-from app.utils.response_utils import set_response
+from app.utils.response_util import set_response
 
 logger = getLogger(name=__name__)
 admin_action = Blueprint('admin_action', __name__)
