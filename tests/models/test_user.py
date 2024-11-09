@@ -156,9 +156,7 @@ class TestUserOperation:
         assert "violates not-null constraint" in str(exc_info.value)
         mock_session.rollback.assert_called_once()
 
-    def test_return_email_hashed_password_salt_user_exists(
-        self, mock_session, valid_user_data
-    ):
+    def test_return_pw_verified_user_exists(self, mock_session, valid_user_data):
         """Test getting the hashed password and salt for a user that exists."""
         # Setup mock to return tuple instead of User object
         mock_session.execute.return_value.first.return_value = (
