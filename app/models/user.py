@@ -127,7 +127,7 @@ class UserOperations:
             if user is None:
                 raise EmailNotFoundException("Email not found.")
             hashed_password, verified_account = user
-            return hashed_password, verified_account
+            return (hashed_password, verified_account)
 
         except (OperationalError, DatabaseError) as error:
             raise error
@@ -143,7 +143,7 @@ class UserOperations:
             ).first()
             if user is None:
                 raise EmailNotFoundException("Email not found.")
-            verified_account = user
+            verified_account = user.verified_account
             return verified_account
         except (OperationalError, DatabaseError) as ex:
             raise ex
