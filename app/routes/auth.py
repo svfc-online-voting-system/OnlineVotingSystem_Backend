@@ -191,7 +191,7 @@ def otp_verification():
     )
     response = set_response(200, messages="OTP Verified")
     set_access_cookies(response, access_token)
-    z(response, refresh_token)
+    set_refresh_cookies(response, refresh_token)
 
     return response
 
