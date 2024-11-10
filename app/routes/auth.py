@@ -184,20 +184,16 @@ def otp_verification():
     otp = validated_data.get("otp_code")  # type: ignore
     auth_service_otp = AuthService()
     user_id = auth_service_otp.verify_otp(email=email, otp=otp)  # type: ignore
-    try:
-        token_service = TokenService()
-        access_token, refresh_token = (  # pylint: disable=unused-variable
-            token_service.generate_jwt_csrf_token(email=email, user_id=user_id)
-        )
-        response = set_response(200, messages="OTP Verified")
-        set_access_cookies(response, access_token)
-        set_refresh_cookies(response, refresh_token)
 
-        return response
+    token_service = TokenService()
+    access_token, refresh_token = (  # pylint: disable=unused-variable
+        token_service.generate_jwt_csrf_token(email=email, user_id=user_id)
+    )
+    response = set_response(200, messages="OTP Verified")
+    set_access_cookies(response, access_token)
+    z(response, refresh_token)
 
-    except Exception as e:  # pylint: disable=W0718
-        print(f"Error: {e}")
-        return set_response(500, {"code": "error", "message": str(e)})
+    return response
 
 
 @auth_blueprint.route(rule="/v1/auth/generate-otp", methods=["PATCH"])
