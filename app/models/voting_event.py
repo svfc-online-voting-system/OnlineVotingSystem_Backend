@@ -120,7 +120,6 @@ class VotingEventOperations:
             )
             session.add(new_voting_event)
             session.commit()
-            return new_voting_event.event_id
         except (OperationalError, IntegrityError, DatabaseError, DataError) as err:
             session.rollback()
             raise err
@@ -148,6 +147,8 @@ class VotingEventOperations:
         """
         session = get_session()
         try:
+            if not isinstance(event_id, int) or not isinstance(user_id, int):
+                raise TypeError("Invalid data type for event_id or user_id")
             session.execute(
                 update(VotingEvent)
                 .values(is_deleted=True)

@@ -25,7 +25,7 @@ app = create_app()
 CORS(
     app,
     supports_credentials=True,
-    origins=[getenv("LOCAL_FRONTEND_URL", ""), getenv("LIVE_FRONTEND_URL", "")],
+    origins="https://localhost:4200",
 )
 
 configured_ssl_context = create_ssl_context()

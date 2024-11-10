@@ -13,11 +13,7 @@ def set_response(status_code, messages):
     response = make_response(jsonify(messages), status_code)
     response.headers["Content-Type"] = "application/json"
     response.headers["Date"] = f"{datetime.now()}"
-    origin = (
-        getenv("LOCAL_FRONTEND_URL", "")
-        if not is_production
-        else getenv("LIVE_FRONTEND_URL", "")
-    )
+    origin = "https://localhost:4200"
     response.headers["Access-Control-Allow-Origin"] = origin
     response.headers["Access-Control-Allow-Credentials"] = "true"
     response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS, GET, DELETE, PUT"

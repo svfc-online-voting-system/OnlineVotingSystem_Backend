@@ -9,6 +9,7 @@ from flask_jwt_extended import (
     set_access_cookies,
     set_refresh_cookies,
     unset_access_cookies,
+    unset_jwt_cookies,
     unset_refresh_cookies,
 )
 from flask_jwt_extended.exceptions import NoAuthorizationError
@@ -113,10 +114,12 @@ def logout() -> Response:
     )
     unset_access_cookies(response)
     unset_refresh_cookies(response)
+    unset_jwt_cookies(response)
     return response
 
 
 @auth_blueprint.route(rule="/v1/auth/verify-jwt-identity", methods=["GET"])
+@jwt_required(optional=False)
 def verify_jwt_identity() -> Response:
     """This is the route for verifying the JWT identity."""
     try:
@@ -189,7 +192,7 @@ def otp_verification():
     access_token, refresh_token = (  # pylint: disable=unused-variable
         token_service.generate_jwt_csrf_token(email=email, user_id=user_id)
     )
-    response = set_response(200, messages="OTP Verified")
+    response = set_response(200, {"code": "success", "message": "OTP Verified"})
     set_access_cookies(response, access_token)
     set_refresh_cookies(response, refresh_token)
 
