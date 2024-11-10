@@ -67,9 +67,9 @@ class ResetPasswordSchema(EmailBaseSchema):
 class OTPSubmissionSchema(EmailBaseSchema):
     """OTP Verification Schema represents the shape of data that it expects to receive."""
 
-    otp = fields.Str(
+    otp_code = fields.Str(
         required=True,
-        validate=validate.Length(min=7),
+        validate=validate.Length(min=7, max=7),
     )
 
 
@@ -95,6 +95,7 @@ class ResetPasswordSubmissionSchema(Schema):
 
 class OTPGenerationSchema(EmailBaseSchema):
     """OTP Generation Schema represents the shape of data that it expects to receive."""
+
 
 class EmailVerificationSchema(EmailBaseSchema):
     """Email Verification Schema represents the shape of data that it expects to receive."""

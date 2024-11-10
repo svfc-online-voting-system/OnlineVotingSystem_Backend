@@ -1,5 +1,6 @@
 """ Class represents each type of voting events and is also the form of data we expect in the database """
 
+from uuid import UUID
 from sqlalchemy import (
     Column,
     Integer,
@@ -54,6 +55,24 @@ class VotingEvent(Base):  # pylint: disable=R0903
         back_populates="voting_event",
         cascade="save-update, merge, expunge, refresh-expire",
     )
+
+    def to_dict(self):
+        """Converts the model to a dictionary."""
+        return {
+            "event_id": self.event_id,
+            "uuid": UUID(bytes=self.uuid).hex,  # type: ignore
+            "event_type": self.event_type,
+            "title": self.title,
+            "description": self.description,
+            "start_date": self.start_date,
+            "end_date": self.end_date,
+            "status": self.status,
+            "created_by": self.created_by,
+            "created_at": self.created_at,
+            "last_modified_at": self.last_modified_at,
+            "approved": self.approved,
+            "is_deleted": self.is_deleted,
+        }
 
 
 class VotingEventOperations:
@@ -147,7 +166,7 @@ class VotingEventOperations:
             session.close()
 
     @classmethod
-    def get_voting_event(cls, event_id, event_type):
+    def get_voting_event(cls, event_id, event_type, user_id):
         """
         Retrieves a specific voting event from the database based on event ID and type.
 
@@ -181,6 +200,7 @@ class VotingEventOperations:
                     VotingEvent.event_id == event_id,
                     VotingEvent.is_deleted.is_(False),
                     VotingEvent.event_type == event_type,
+                    VotingEvent.created_by == user_id,
                 )
             )
         ).fetchone()
@@ -203,28 +223,67 @@ class AdminOperations:
         """Service that will call and validate the approval of the vote"""
 
     @classmethod
-    def get_all_voting_events(cls):
-        """
-        Retrieves all non-deleted voting events from the database.
-
-        Returns:
-            list: A list of voting events containing uuid, title, description, dates, status,
-                creator info, timestamps, approval status and event type.
-        """
+    def get_all_voting_events_by(cls, voting_event_type=None, voting_status=None):
+        """Retrieves all active voting events from the database."""
         session = get_session()
-        voting_events = session.execute(
-            select(
-                VotingEvent.uuid,
-                VotingEvent.title,
-                VotingEvent.description,
-                VotingEvent.start_date,
-                VotingEvent.end_date,
-                VotingEvent.status,
-                VotingEvent.created_by,
-                VotingEvent.created_at,
-                VotingEvent.last_modified_at,
-                VotingEvent.approved,
-                VotingEvent.event_type,
-            ).where(VotingEvent.is_deleted.is_(False))
-        ).fetchall()
-        return voting_events
+        try:
+            query = select(VotingEvent)
+            if voting_event_type and voting_event_type != "all":
+                query = query.where(VotingEvent.event_type == voting_event_type)
+            if voting_status and voting_status != "all":
+                query = query.where(VotingEvent.status == voting_status)
+            voting_events = session.execute(query).scalars().all()
+            voting_events_list = []
+            for event in voting_events:
+                voting_events_list.append(event.to_dict())
+                return voting_events_list
+            return voting_events_list
+        except (OperationalError, DatabaseError) as err:
+            raise err
+        finally:
+            session.close()
+
+
+class UserOperations:  # pylint: disable=R0903
+    """Class containing operations for users."""
+
+    @classmethod
+    def get_voting_events_by(cls, voting_event_type=None, voting_status=None):
+        """Retrieves voting events based on type and status."""
+        session = get_session()
+        try:
+            query = select(VotingEvent).where(
+                and_(VotingEvent.is_deleted.is_(False), VotingEvent.approved.is_(False))
+            )
+
+            if voting_event_type and voting_event_type != "all":
+                query = query.where(VotingEvent.event_type == voting_event_type)
+
+            if voting_status and voting_status != "all":
+                query = query.where(VotingEvent.status == voting_status)
+
+            voting_events = session.execute(query).scalars().all()
+            voting_events_list = []
+
+            for event in voting_events:
+                voting_events_list.append(
+                    {
+                        "id": event.event_id,
+                        "uuid": UUID(bytes=event.uuid).hex,  # type: ignore
+                        "title": event.title,
+                        "description": event.description,
+                        "start_date": event.start_date,
+                        "end_date": event.end_date,
+                        "status": event.status,
+                        "created_by": event.created_by,
+                        "created_at": event.created_at,
+                        "last_modified_at": event.last_modified_at,
+                    }
+                )
+
+            return voting_events_list
+
+        except (OperationalError, DatabaseError, DataError) as err:
+            raise err
+        finally:
+            session.close()

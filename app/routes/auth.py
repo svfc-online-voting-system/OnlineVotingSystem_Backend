@@ -7,6 +7,9 @@ from flask_jwt_extended import (
     get_jwt_identity,
     jwt_required,
     set_access_cookies,
+    set_refresh_cookies,
+    unset_access_cookies,
+    unset_refresh_cookies,
 )
 from flask_jwt_extended.exceptions import NoAuthorizationError
 from jwt import ExpiredSignatureError, InvalidTokenError
@@ -105,9 +108,12 @@ def login() -> Response:
 @auth_blueprint.route(rule="/v1/auth/logout", methods=["POST"])
 def logout() -> Response:
     """This is the route for logging out."""
-    return set_response(
-        200, {"code": "success", "message": "Logged out successfully."}, action="logout"
+    response = set_response(
+        200, {"code": "success", "message": "Logged out successfully."}
     )
+    unset_access_cookies(response)
+    unset_refresh_cookies(response)
+    return response
 
 
 @auth_blueprint.route(rule="/v1/auth/verify-jwt-identity", methods=["GET"])
@@ -185,6 +191,7 @@ def otp_verification():
         )
         response = set_response(200, messages="OTP Verified")
         set_access_cookies(response, access_token)
+        set_refresh_cookies(response, refresh_token)
 
         return response
 
