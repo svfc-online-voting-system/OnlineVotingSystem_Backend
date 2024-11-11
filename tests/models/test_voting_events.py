@@ -3,6 +3,8 @@
 # pylint: disable=W0621
 # pylint: disable=C0116
 # pylint: disable=C0103
+# pylint: disable=W0212
+
 
 from datetime import datetime, timedelta
 from unittest.mock import Mock, patch
@@ -301,15 +303,17 @@ class TestVoteEventCreation:
 
 
 class TestEventDeletion:
-    def test_delete_voting_event_success(self, mock_session):
+    """Test for voting event deletion."""
+
+    def test_delete_voting_events_success(self, mock_session):
         # Arrange
-        event_id = 1
+        event_id = [1]
         user_id = 1
         mock_session.execute.return_value = None
         mock_session.commit.return_value = None
 
         # Act
-        VotingEventOperations.delete_voting_event(event_id, user_id)
+        VotingEventOperations.delete_voting_events(event_id, user_id)
 
         # Assert
         mock_session.execute.assert_called_once()
@@ -320,21 +324,27 @@ class TestEventDeletion:
         update_call = mock_session.execute.call_args[0][0]
         assert isinstance(update_call, Update)
         assert str(update_call.table) == "voting_event"
-        assert list(update_call._values.values())[0].value == True
-        assert (
-            str(update_call._where_criteria)
-            == "voting_event.event_id = :event_id_1 AND voting_event.created_by = :created_by_1"
+        assert list(update_call._values.values())[0].value  # type: ignore # pylint: disable=W0212
+
+        # Compare the compiled SQL string instead of the raw where criteria
+        compiled_query = str(
+            update_call.compile(compile_kwargs={"literal_binds": True})
         )
+        expected_where_clause = (
+            "UPDATE voting_event SET is_deleted=true "
+            "WHERE voting_event.event_id IN (1) AND voting_event.created_by = 1"
+        )
+        assert compiled_query == expected_where_clause
 
     def test_delete_non_existent_voting_event(self, mock_session):
         # Arrange
-        event_id = 999
+        event_id = [999]
         user_id = 1
         mock_session.execute.return_value = None
         mock_session.commit.return_value = None
 
         # Act
-        VotingEventOperations.delete_voting_event(event_id, user_id)
+        VotingEventOperations.delete_voting_events(event_id, user_id)
 
         # Assert
         mock_session.execute.assert_called_once()
@@ -345,22 +355,33 @@ class TestEventDeletion:
         update_call = mock_session.execute.call_args[0][0]
         assert isinstance(update_call, Update)
         assert update_call.table == VotingEvent.__table__
-        assert update_call.compile().params == {"is_deleted": True}
-        assert (
-            str(update_call._where_criteria[0])
-            == f"voting_event.event_id = {event_id} AND voting_event.created_by = {user_id}"
-        )
 
-    def test_delete_voting_event_mismatched_user_id(self, mock_session):
+        # Extract the actual parameters
+        actual_params = update_call.compile().params
+        expected_params = {
+            "is_deleted": True,
+            "event_id_1": event_id,
+            "created_by_1": user_id,
+        }
+        assert actual_params == expected_params
+
+        # Verify the where criteria
+        where_criteria = str(update_call._where_criteria[0])
+        expected_criteria = str(
+            and_(VotingEvent.event_id.in_(event_id), VotingEvent.created_by == user_id)
+        )
+        assert where_criteria == expected_criteria
+
+    def test_delete_voting_events_mismatched_user_id(self, mock_session):
         # Arrange
-        event_id = 1
-        user_id = 2
+        event_id = [1]
+        user_id = 2  # pylint: disable=unused-variable
         mismatched_user_id = 3
         mock_session.execute.return_value = None
         mock_session.commit.return_value = None
 
         # Act
-        VotingEventOperations.delete_voting_event(event_id, mismatched_user_id)
+        VotingEventOperations.delete_voting_events(event_id, mismatched_user_id)
 
         # Assert
         mock_session.execute.assert_called_once()
@@ -371,15 +392,26 @@ class TestEventDeletion:
         update_call = mock_session.execute.call_args[0][0]
         assert isinstance(update_call, Update)
         assert update_call.table == VotingEvent.__table__
-        assert update_call._values == {"is_deleted": True}
-        assert (
-            str(update_call._where_criteria[0])
-            == f"voting_event.event_id = {event_id} AND voting_event.created_by = {mismatched_user_id}"
+
+        # Verify update values using compiled SQL
+        compiled_sql = str(
+            update_call.compile(compile_kwargs={"literal_binds": True})
+        ).lower()
+        assert "set is_deleted=true" in compiled_sql
+
+        # Verify where criteria
+        where_criteria = str(update_call._where_criteria[0])
+        expected_criteria = str(
+            and_(
+                VotingEvent.event_id.in_(event_id),
+                VotingEvent.created_by == mismatched_user_id,
+            )
         )
+        assert where_criteria == expected_criteria
 
     def test_delete_already_deleted_voting_event(self, mock_session):
         # Arrange
-        event_id = 1
+        event_id = [1]
         user_id = 1
         mock_session.execute.return_value = None
         mock_session.commit.return_value = None
@@ -390,71 +422,49 @@ class TestEventDeletion:
         mock_session.execute.return_value = mock_execute_result
 
         # Act
-        VotingEventOperations.delete_voting_event(event_id, user_id)
+        VotingEventOperations.delete_voting_events(event_id, user_id)
 
         # Assert
         mock_session.execute.assert_called_once()
         mock_session.commit.assert_called_once()
         mock_session.close.assert_called_once()
 
-        # Verify that the update operation was called with the correct parameters
         update_call = mock_session.execute.call_args[0][0]
         assert isinstance(update_call, Update)
         assert update_call.table == VotingEvent.__table__
-        assert update_call._values == {"is_deleted": True}
-        assert str(update_call._where_criteria) == str(
-            and_(VotingEvent.event_id == event_id, VotingEvent.created_by == user_id)
+
+        # Verify update using compiled SQL
+        compiled_sql = str(
+            update_call.compile(compile_kwargs={"literal_binds": True})
+        ).lower()
+        assert "set is_deleted=true" in compiled_sql
+
+        # Verify where criteria
+        where_criteria = str(update_call._where_criteria[0])
+        expected_criteria = str(
+            and_(VotingEvent.event_id.in_(event_id), VotingEvent.created_by == user_id)
         )
+        assert where_criteria == expected_criteria
 
-    def test_delete_voting_event_with_invalid_event_id_type(self, mock_session):
+    def test_concurrent_delete_voting_events(self, mock_session):
         # Arrange
-        invalid_event_id = "invalid_id"
-        user_id = 1
-
-        # Act & Assert
-        with pytest.raises(TypeError):
-            VotingEventOperations.delete_voting_event(invalid_event_id, user_id)
-
-        mock_session.execute.assert_not_called()
-        mock_session.commit.assert_not_called()
-        mock_session.rollback.assert_called_once()
-        mock_session.close.assert_called_once()
-
-    def test_delete_voting_event_invalid_user_id_type(self, mock_session):
-        # Arrange
-        event_id = 1
-        invalid_user_id = "invalid_user_id"
-        mock_session.execute.side_effect = TypeError(
-            "Invalid data type for event_id or user_id"
-        )
-
-        # Act & Assert
-        with pytest.raises(TypeError):
-            VotingEventOperations.delete_voting_event(event_id, invalid_user_id)
-
-        mock_session.execute.assert_called_once()
-        mock_session.rollback.assert_called_once()
-        mock_session.close.assert_called_once()
-
-    def test_concurrent_delete_voting_event(self, mock_session):
-        # Arrange
-        event_id = 1
+        event_id = [1]
         user_id = 1
         mock_session.execute.return_value = None
         mock_session.commit.return_value = None
 
         # Simulate concurrent deletion
-        def side_effect(*args, **kwargs):
+        def side_effect(*args, **kwargs):  # pylint: disable=unused-argument
             if mock_session.execute.call_count == 1:
                 return None
-            raise IntegrityError(None, None, None)
+            raise IntegrityError(None, None, None)  # type: ignore
 
         mock_session.execute.side_effect = side_effect
 
         # Act
-        VotingEventOperations.delete_voting_event(event_id, user_id)
+        VotingEventOperations.delete_voting_events(event_id, user_id)
         with pytest.raises(IntegrityError):
-            VotingEventOperations.delete_voting_event(event_id, user_id)
+            VotingEventOperations.delete_voting_events(event_id, user_id)
 
         # Assert
         assert mock_session.execute.call_count == 2
@@ -462,15 +472,15 @@ class TestEventDeletion:
         assert mock_session.rollback.call_count == 1
         assert mock_session.close.call_count == 2
 
-    def test_delete_voting_event_during_active_session(self, mock_session):
+    def test_delete_voting_events_during_active_session(self, mock_session):
         # Arrange
-        event_id = 1
+        event_id = [1]
         user_id = 2
         mock_session.execute.return_value = None
         mock_session.commit.return_value = None
 
         # Act
-        VotingEventOperations.delete_voting_event(event_id, user_id)
+        VotingEventOperations.delete_voting_events(event_id, user_id)
 
         # Assert
         mock_session.execute.assert_called_once()
@@ -479,12 +489,21 @@ class TestEventDeletion:
 
         # Check if the correct update query was executed
         update_call = mock_session.execute.call_args[0][0]
-        assert isinstance(update_call, update)
+        assert isinstance(update_call, Update)
         assert update_call.table == VotingEvent.__table__
-        assert update_call._values == {"is_deleted": True}
-        assert str(update_call._where_criteria) == str(
-            and_(VotingEvent.event_id == event_id, VotingEvent.created_by == user_id)
+
+        # Verify the update using compiled SQL
+        compiled_sql = str(
+            update_call.compile(compile_kwargs={"literal_binds": True})
+        ).lower()
+        assert "set is_deleted=true" in compiled_sql
+
+        # Verify the where criteria
+        where_criteria = str(update_call._where_criteria[0])  # pylint: disable=W0212
+        expected_criteria = str(
+            and_(VotingEvent.event_id.in_(event_id), VotingEvent.created_by == user_id)
         )
+        assert where_criteria == expected_criteria
 
     def test_delete_multiple_voting_events(self, mock_session):
         # Arrange
@@ -494,34 +513,32 @@ class TestEventDeletion:
         mock_session.commit.return_value = None
 
         # Act
-        for event_id in event_ids:
-            VotingEventOperations.delete_voting_event(event_id, user_id)
+        VotingEventOperations.delete_voting_events(event_ids, user_id)
 
         # Assert
-        assert mock_session.execute.call_count == len(event_ids)
-        for event_id in event_ids:
-            mock_session.execute.assert_any_call(
-                update(VotingEvent)
-                .values(is_deleted=True)
-                .where(
-                    and_(
-                        VotingEvent.event_id == event_id,
-                        VotingEvent.created_by == user_id,
-                    )
+        called_args = mock_session.execute.call_args[0][0]
+        assert str(called_args) == str(
+            update(VotingEvent)
+            .values(is_deleted=True)
+            .where(
+                and_(
+                    VotingEvent.event_id.in_(event_ids),
+                    VotingEvent.created_by == user_id,
                 )
             )
+        )
         mock_session.commit.assert_called_once()
         mock_session.close.assert_called_once()
 
-    def test_delete_voting_event_with_associated_data(self, mock_session):
+    def test_delete_voting_events_with_associated_data(self, mock_session):
         # Arrange
-        event_id = 1
+        event_id = [1]
         user_id = 1
         mock_session.execute.return_value = None
         mock_session.commit.return_value = None
 
         # Act
-        VotingEventOperations.delete_voting_event(event_id, user_id)
+        VotingEventOperations.delete_voting_events(event_id, user_id)
 
         # Assert
         mock_session.execute.assert_called_once()
@@ -532,8 +549,16 @@ class TestEventDeletion:
         update_call = mock_session.execute.call_args[0][0]
         assert isinstance(update_call, Update)
         assert update_call.table == VotingEvent.__table__
-        assert update_call._values == {"is_deleted": True}
-        assert (
-            str(update_call._where_criteria[0])
-            == "voting_event.event_id = :event_id_1 AND voting_event.created_by = :created_by_1"
+
+        # Verify the update using compiled SQL
+        compiled_sql = str(
+            update_call.compile(compile_kwargs={"literal_binds": True})
+        ).lower()
+        assert "set is_deleted=true" in compiled_sql
+
+        # Verify the where criteria
+        where_criteria = str(update_call._where_criteria[0])  # pylint: disable=W0212
+        expected_criteria = str(
+            and_(VotingEvent.event_id.in_(event_id), VotingEvent.created_by == user_id)
         )
+        assert where_criteria == expected_criteria

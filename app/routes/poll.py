@@ -55,10 +55,10 @@ def delete_poll():
             400,
             {"code": "invalid_request", "message": "Bad Request: No data provided."},
         )
-    poll_id = data.get("poll_id")
+    poll_ids = data.get("poll_id")
     user_id = get_jwt().get("sub").get("user_id")  # type: ignore
     poll_service = PollService()
-    poll_service.delete_poll(poll_id, user_id)
+    poll_service.delete_polls(poll_ids, user_id)
     return set_response(
         200, {"code": "success", "message": "The poll has been deleted."}
     )

@@ -131,13 +131,13 @@ class VotingEventOperations:
         pass
 
     @classmethod
-    def delete_voting_event(cls, event_id, user_id):
+    def delete_voting_events(cls, event_ids: list[int], user_id: int):
         """
-        Performs a soft delete of a voting event by setting is_deleted to True.
+        Performs a soft delete of one or multiple voting events by setting is_deleted to True.
 
         Args:
-            event_id (int): ID of the voting event to delete
-            user_id (int): ID of the user who created the event
+            event_ids (list[int]): List of event IDs to delete
+            user_id (int): ID of the user who created the events
 
         Raises:
             OperationalError: If there is a problem with database operations
@@ -147,14 +147,12 @@ class VotingEventOperations:
         """
         session = get_session()
         try:
-            if not isinstance(event_id, int) or not isinstance(user_id, int):
-                raise TypeError("Invalid data type for event_id or user_id")
             session.execute(
                 update(VotingEvent)
                 .values(is_deleted=True)
                 .where(
                     and_(
-                        VotingEvent.event_id == event_id,
+                        VotingEvent.event_id.in_(event_ids),
                         VotingEvent.created_by == user_id,
                     )
                 )
