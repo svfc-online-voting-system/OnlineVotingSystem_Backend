@@ -4,7 +4,7 @@ from logging import getLogger
 
 from flask import Blueprint, request, Response
 from flask_jwt_extended import (
-    get_jwt_identity,
+    get_jwt,
     jwt_required,
     set_access_cookies,
     set_refresh_cookies,
@@ -123,8 +123,8 @@ def logout() -> Response:
 def verify_jwt_identity() -> Response:
     """This is the route for verifying the JWT identity."""
     try:
-        get_jwt_identity()
-        return set_response(200, {"code": "success", "message": "Token Verified"})
+        role = get_jwt().get("sub").get("role")  # type: ignore
+        return set_response(200, {"code": "success", "message": role})
     except ExpiredSignatureError:
         logger.warning("JWT token has expired")
         return set_response(
@@ -186,13 +186,17 @@ def otp_verification():
     email = validated_data.get("email")  # type: ignore
     otp = validated_data.get("otp_code")  # type: ignore
     auth_service_otp = AuthService()
-    user_id = auth_service_otp.verify_otp(email=email, otp=otp)  # type: ignore
+    user_id, is_admin = auth_service_otp.verify_otp(email=email, otp=otp)  # type: ignore
+    role = "admin" if is_admin else "user"
 
     token_service = TokenService()
     access_token, refresh_token = (  # pylint: disable=unused-variable
-        token_service.generate_jwt_csrf_token(email=email, user_id=user_id)
+        token_service.generate_jwt_csrf_token(email, user_id, role)
     )
-    response = set_response(200, {"code": "success", "message": "OTP Verified"})
+    response = set_response(200, {"code": "success", "message": role})
+    unset_access_cookies(response)
+    unset_refresh_cookies(response)
+    unset_jwt_cookies(response)
     set_access_cookies(response, access_token)
     set_refresh_cookies(response, refresh_token)
 

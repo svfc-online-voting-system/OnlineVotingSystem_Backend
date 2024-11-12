@@ -23,6 +23,7 @@ from sqlalchemy.orm import relationship
 
 from app.exception.voting_event_exception import VotingEventDoesNotExists
 from app.models.base import Base
+from app.models.user import User
 from app.utils.engine import get_session
 
 
@@ -224,20 +225,34 @@ class AdminOperations:
         """Service that will call and validate the approval of the vote"""
 
     @classmethod
-    def get_all_voting_events_by(cls, voting_event_type=None, voting_status=None):
-        """Retrieves all active voting events from the database."""
+    def get_all_voting_events_by(cls, voting_event_type=None):
+        """Retrieves all active voting events from the database with user details."""
         session = get_session()
         try:
-            query = select(VotingEvent)
+            query = select(
+                VotingEvent, User.username, User.firstname, User.lastname, User.user_id, User.uuid
+            ).join(User, VotingEvent.created_by == User.user_id)
             if voting_event_type and voting_event_type != "all":
                 query = query.where(VotingEvent.event_type == voting_event_type)
-            if voting_status and voting_status != "all":
-                query = query.where(VotingEvent.status == voting_status)
-            voting_events = session.execute(query).scalars().all()
+            results = session.execute(query).all()
             voting_events_list = []
-            for event in voting_events:
-                voting_events_list.append(event.to_dict())
-                return voting_events_list
+            for result in results:
+                event = result[0]  # VotingEvent object
+                username = result[1]
+                full_name = f"{result[2]} {result[3]}"
+                user_id = result[4]
+                user_uuid = UUID(bytes=result[5]).hex  # type: ignore
+
+                event_dict = event.to_dict()
+                event_dict.update(
+                    {
+                        "creator_username": username,
+                        "creator_fullname": full_name,
+                        "creator_id": user_id,
+                        "creator_uuid": user_uuid,
+                    }
+                )
+                voting_events_list.append(event_dict)
             return voting_events_list
         except (OperationalError, DatabaseError) as err:
             raise err

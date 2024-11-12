@@ -7,7 +7,6 @@
 
 import base64
 import hashlib
-import time
 import uuid
 from base64 import urlsafe_b64encode
 from datetime import datetime, timedelta
@@ -40,6 +39,7 @@ from app.models.user import (
     EmailVerificationOperations,
 )
 from app.utils.email_utility import send_mail
+from app.utils.security import get_enhanced_seed
 
 logger = getLogger(__name__)
 
@@ -168,7 +168,7 @@ class OTPService:  # pylint: disable=R0903
 
     @staticmethod
     def generate_otp(email):  # pylint: disable=C0116
-        seed = f"{getenv('TOTP_SECRET_KEY')}{int(time.time())}"
+        seed = get_enhanced_seed()
         seven_digit_otp = pyotp.TOTP(
             base64.b32encode(bytes.fromhex(seed)).decode("UTF-8"),
             digits=7,
@@ -190,7 +190,7 @@ class OTPService:  # pylint: disable=R0903
         if not is_user_exists:
             raise EmailNotFoundException("Email not found.")
 
-        otp_secret, otp_expiry, user_id = OtpOperations.get_otp(email=email)
+        otp_secret, otp_expiry, user_id, is_admin = OtpOperations.get_otp(email=email)
 
         if otp_secret is None or otp_expiry is None:
             raise OTPExpiredException("OTP has expired.")
@@ -203,7 +203,7 @@ class OTPService:  # pylint: disable=R0903
             OtpOperations.invalidate_otp(email)
             raise OTPIncorrectException("Incorrect OTP.")
         OtpOperations.invalidate_otp(email)
-        return user_id
+        return user_id, is_admin
 
 
 class SendMailService:  # pylint: disable=R0903

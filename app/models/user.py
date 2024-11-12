@@ -386,11 +386,11 @@ class OtpOperations:
         session = get_session()
         try:
             result = session.execute(
-                select(User.otp_secret, User.otp_expiry, User.user_id).where(
-                    User.email == email
-                )
+                select(
+                    User.otp_secret, User.otp_expiry, User.user_id, User.is_admin
+                ).where(User.email == email)
             ).first()
-            return result.otp_secret, result.otp_expiry, result.user_id  # type: ignore
+            return result.otp_secret, result.otp_expiry, result.user_id, result.is_admin  # type: ignore
         except (OperationalError, DatabaseError) as exception:
             raise exception
         finally:
