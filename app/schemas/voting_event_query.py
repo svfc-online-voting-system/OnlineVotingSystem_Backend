@@ -11,12 +11,12 @@ class VotingEventQuerySchema(Schema):
     voting_event_type = fields.String(
         required=False,
         validate=validate.OneOf(["poll", "election", "all"]),
-        missing="all",
+        load_default="all",
     )
     voting_status = fields.String(
         required=False,
         validate=validate.OneOf(
             ["upcoming", "active", "completed", "cancelled", "all"]
         ),
-        missing="all",
+        load_default="all",
     )

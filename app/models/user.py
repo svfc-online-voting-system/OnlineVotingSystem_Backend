@@ -3,7 +3,6 @@
             - user_id: Integer, primary key, autoincrement
             - uuid: UUID, unique, not null
             - username: String, unique, not null
-            - salt: String, not null
             - hashed_password: String, not null
             - email: String, not null
             - date_of_birth: Date, not null
@@ -53,7 +52,7 @@ class User(Base):  # pylint: disable=R0903
     """
     SQLAlchemy model representing a User in the database.
 
-    Contains user authentication fields (username, password, salt), personal information
+    Contains user authentication fields (username, password), personal information
     (email, name, DOB), account status flags (verified, admin), and security tokens
     for password reset and account verification. Links to voting events through
     relationship.
@@ -75,7 +74,6 @@ class User(Base):  # pylint: disable=R0903
     creation_date = Column(Date, nullable=False)
     verified_account = Column(Boolean, default=expression.false(), nullable=False)
     is_admin = Column(Boolean, default=expression.false(), nullable=False)
-    salt = Column(VARCHAR(45), nullable=False)
     hashed_password = Column(VARCHAR(255), nullable=False)
     otp_secret = Column(VARCHAR(20), nullable=True)
     otp_expiry = Column(Date, nullable=True)
@@ -113,7 +111,7 @@ class UserOperations:
 
         Args:
             user_data (dict): Dictionary containing user details including uuid, username, email,
-                            firstname, lastname, date_of_birth, creation_date, is_admin, salt,
+                            firstname, lastname, date_of_birth, creation_date, is_admin,
                             hashed_password, verification_token, verification_expiry, and
                             verified_account.
 
@@ -134,7 +132,6 @@ class UserOperations:
                 date_of_birth=user_data.get("date_of_birth"),
                 creation_date=user_data.get("creation_date"),
                 is_admin=user_data.get("is_admin"),
-                salt=user_data.get("salt"),
                 hashed_password=user_data.get("hashed_password"),
                 verification_token=user_data.get("verification_token"),
                 verification_expiry=user_data.get("verification_expiry"),
@@ -246,14 +243,13 @@ class PasswordOperations:
     """Class responsible for password operations like hashing, verifying, etc."""
 
     @staticmethod
-    def verify_forgot_password_token(reset_token, new_hashed_password, salt):
+    def verify_forgot_password_token(reset_token, new_hashed_password):
         """
         Verifies a password reset token and updates the user's password.
 
         Args:
             reset_token: The token to verify for password reset
             new_hashed_password: The new hashed password to set
-            salt: The salt value for the new password
 
         Returns:
             str: 'password_reset' on successful password update
@@ -286,7 +282,7 @@ class PasswordOperations:
                 )
                 session.commit()
                 raise PasswordResetExpiredException("Password reset link has expired.")
-            return PasswordOperations.password_reset(new_hashed_password, salt, user[0])
+            return PasswordOperations.password_reset(new_hashed_password, user[0])
         except (
             PasswordResetExpiredException,
             PasswordResetLinkInvalidException,
@@ -299,13 +295,12 @@ class PasswordOperations:
             session.close()
 
     @staticmethod
-    def password_reset(new_hashed_password, salt, user_id):
+    def password_reset(new_hashed_password, user_id):
         """
-        Updates a user's password and salt in the database.
+        Updates a user's password in the database.
 
         Args:
             new_hashed_password: The new hashed password to set
-            salt: The new salt value for the password
             user_id: The ID of the user to update
 
         Returns:
@@ -320,7 +315,7 @@ class PasswordOperations:
             query = (
                 update(User)
                 .where(User.user_id == user_id)
-                .values(salt=salt, hashed_password=new_hashed_password)
+                .values(hashed_password=new_hashed_password)
             )
             session.execute(query)
             session.commit()

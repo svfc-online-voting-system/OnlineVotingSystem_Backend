@@ -16,9 +16,9 @@ class PollService:
         return PollVotingEventService.create_poll_voting_event(poll_data)
 
     @classmethod
-    def delete_poll(cls, poll_id, user_id):
+    def delete_polls(cls, poll_ids: list[int], user_id):
         """Responsible for deleting a poll"""
-        return PollVotingEventService.delete_poll_voting_event(poll_id, user_id)
+        return PollVotingEventService.delete_poll_voting_events(poll_ids, user_id)
 
     @classmethod
     def rename_poll_title(cls, poll_id, user_id):
@@ -67,13 +67,13 @@ class PollVotingEventService:
         )
 
     @staticmethod
-    def delete_poll_voting_event(poll_id, user_id):
+    def delete_poll_voting_events(poll_id: list[int], user_id):
         """Responsible for deleting the voting event"""
         if not poll_id:
             raise ValueError("Poll ID cannot be empty")
         if not user_id:
             raise ValueError("User ID cannot be empty")
-        VotingEventOperations.delete_voting_event(event_id=poll_id, user_id=user_id)
+        VotingEventOperations.delete_voting_events(event_ids=poll_id, user_id=user_id)
 
     @staticmethod
     def create_poll_voting_event(poll_data: dict) -> str:

@@ -1,6 +1,5 @@
 """ This module is used to run the Flask app. """
 
-from os import getenv
 from ssl import SSLContext, PROTOCOL_TLS_SERVER
 
 from dotenv import load_dotenv
@@ -25,7 +24,7 @@ app = create_app()
 CORS(
     app,
     supports_credentials=True,
-    origins=[getenv("LOCAL_FRONTEND_URL", ""), getenv("LIVE_FRONTEND_URL", "")],
+    origins="https://localhost:4200",
 )
 
 configured_ssl_context = create_ssl_context()

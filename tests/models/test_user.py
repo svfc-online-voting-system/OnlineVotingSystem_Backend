@@ -29,9 +29,8 @@ def mock_session():
 @pytest.fixture
 def valid_user_data():
     """Represents a valid user data."""
-    salt = gensalt(rounds=16).decode("utf-8")
     hashed_password = (
-        hashpw("hashedpassword123".encode("utf-8"), salt.encode("utf-8"))
+        hashpw("hashedpassword123".encode("utf-8"), gensalt(rounds=16))
     ).decode("utf-8")
     verification_token = urlsafe_b64encode(urandom(128)).decode("utf-8").rstrip("=")
     return {
@@ -44,7 +43,6 @@ def valid_user_data():
         "creation_date": datetime.now().date(),
         "verified_account": False,
         "is_admin": False,
-        "salt": salt,
         "hashed_password": hashed_password,
         "otp_secret": None,
         "otp_expiry": None,
@@ -88,7 +86,6 @@ class TestUserOperation:
         assert user_obj.date_of_birth == valid_user_data["date_of_birth"]
         assert user_obj.creation_date == valid_user_data["creation_date"]
         assert user_obj.is_admin == valid_user_data["is_admin"]
-        assert user_obj.salt == valid_user_data["salt"]
         assert user_obj.hashed_password == valid_user_data["hashed_password"]
         assert user_obj.otp_secret == valid_user_data["otp_secret"]
         assert user_obj.otp_expiry == valid_user_data["otp_expiry"]
