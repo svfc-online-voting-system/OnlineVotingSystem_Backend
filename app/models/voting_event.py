@@ -1,5 +1,7 @@
 """ Class represents each type of voting events and is also the form of data we expect in the database """
 
+# pylint: disable=R0801
+
 from uuid import UUID
 from sqlalchemy import (
     Column,
