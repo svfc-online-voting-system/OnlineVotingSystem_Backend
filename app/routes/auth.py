@@ -194,9 +194,7 @@ def otp_verification():
         token_service.generate_jwt_csrf_token(email, user_id, role)
     )
     response = set_response(200, {"code": "success", "message": role})
-    unset_access_cookies(response)
-    unset_refresh_cookies(response)
-    unset_jwt_cookies(response)
+
     set_access_cookies(response, access_token)
     set_refresh_cookies(response, refresh_token)
 

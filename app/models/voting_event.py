@@ -230,7 +230,12 @@ class AdminOperations:
         session = get_session()
         try:
             query = select(
-                VotingEvent, User.username, User.firstname, User.lastname, User.user_id, User.uuid
+                VotingEvent,
+                User.username,
+                User.firstname,
+                User.lastname,
+                User.user_id,
+                User.uuid,
             ).join(User, VotingEvent.created_by == User.user_id)
             if voting_event_type and voting_event_type != "all":
                 query = query.where(VotingEvent.event_type == voting_event_type)
@@ -268,8 +273,21 @@ class UserOperations:  # pylint: disable=R0903
         """Retrieves voting events based on type and status."""
         session = get_session()
         try:
-            query = select(VotingEvent).where(
-                and_(VotingEvent.is_deleted.is_(False), VotingEvent.approved.is_(False))
+            query = (
+                select(
+                    VotingEvent,
+                    User.firstname,
+                    User.lastname,
+                    VotingEvent.uuid.label("event_uuid"),
+                    User.uuid.label("user_uuid"),
+                )
+                .join(User, VotingEvent.created_by == User.user_id)
+                .where(
+                    and_(
+                        VotingEvent.is_deleted.is_(False),
+                        VotingEvent.approved.is_(True),
+                    )
+                )
             )
 
             if voting_event_type and voting_event_type != "all":
@@ -278,25 +296,30 @@ class UserOperations:  # pylint: disable=R0903
             if voting_status and voting_status != "all":
                 query = query.where(VotingEvent.status == voting_status)
 
-            voting_events = session.execute(query).scalars().all()
+            results = session.execute(query).all()
             voting_events_list = []
 
-            for event in voting_events:
+            for result in results:
+                event = result[0]  # VotingEvent object
+                event_uuid_bytes = result.event_uuid
+                user_uuid_bytes = result.user_uuid
+
                 voting_events_list.append(
                     {
                         "id": event.event_id,
-                        "uuid": UUID(bytes=event.uuid).hex,  # type: ignore
+                        "event_uuid": UUID(bytes=event_uuid_bytes).hex,  # type: ignore
                         "title": event.title,
                         "description": event.description,
+                        "event_type": event.event_type,
+                        "status": event.status,
                         "start_date": event.start_date,
                         "end_date": event.end_date,
-                        "status": event.status,
-                        "created_by": event.created_by,
+                        "creator_firstname": result.firstname,
+                        "creator_uuid": UUID(bytes=user_uuid_bytes).hex,  # type: ignore
                         "created_at": event.created_at,
                         "last_modified_at": event.last_modified_at,
                     }
                 )
-
             return voting_events_list
 
         except (OperationalError, DatabaseError, DataError) as err:

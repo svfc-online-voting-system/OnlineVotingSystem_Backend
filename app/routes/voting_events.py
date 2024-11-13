@@ -28,4 +28,4 @@ def get_voting_event_by():
         voting_event_type, voting_status
     )
 
-    return set_response(200, {"code": "success", "data": voting_events})
+    return set_response(200, {"code": "success", "voting_events": voting_events})
