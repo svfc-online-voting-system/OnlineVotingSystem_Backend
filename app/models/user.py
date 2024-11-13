@@ -585,3 +585,38 @@ class ForgotPasswordOperations:  # pylint: disable=R0903
             raise e
         finally:
             session.close()
+
+
+class ProfileOperations:  # pylint: disable=R0903
+    """Class for user profile operations."""
+
+    @staticmethod
+    def get_my_profile_settings(user_id: int):
+        """Retrieves the profile settings of the user."""
+        session = get_session()
+        try:
+            result = session.execute(
+                select(
+                    User.user_id,
+                    User.email,
+                    User.firstname,
+                    User.lastname,
+                    User.username,
+                    User.date_of_birth,
+                    User.creation_date,
+                ).where(User.user_id == user_id)
+            ).first()
+            return {
+                "user_id": result.user_id,  # type: ignore
+                "email": result.email,  # type: ignore
+                "first_name": result.firstname,  # type: ignore
+                "last_name": result.lastname,  # type: ignore
+                "username": result.username,  # type: ignore
+                "date_of_birth": result.date_of_birth,  # type: ignore
+                "creation_date": result.creation_date,  # type: ignore
+            }
+        except (EmailNotFoundException, DataError, OperationalError) as e:
+            session.rollback()
+            raise e
+        finally:
+            session.close()
