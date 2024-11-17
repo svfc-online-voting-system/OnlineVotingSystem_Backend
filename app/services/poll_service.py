@@ -43,7 +43,7 @@ class PollService:
         """Responsible for editing an option in a poll"""
 
     @classmethod
-    def cast_poll_vote(cls, event_id, option_id, user_id):
+    def cast_poll_vote(cls, data):
         """Responsible for casting a vote"""
 
     @classmethod
@@ -53,6 +53,10 @@ class PollService:
     @classmethod
     def change_vote(cls, vote_info):
         """Responsible for changing a vote"""
+
+    def get_polls(self, user_id):
+        """Responsible for getting all the polls"""
+        return user_id
 
 
 class PollVotingEventService:
