@@ -47,7 +47,7 @@ class AddPoll(MethodView):
             "401": {"description": "Unauthorized"},
         },
     )
-    @jwt_required(optional=False)
+    @jwt_required(False)
     def post(self, data):
         data["created_by"] = get_jwt().get("sub").get("user_id")  # type: ignore
         poll_service = PollService()
@@ -69,7 +69,7 @@ class DeletePoll(MethodView):
             "401": {"description": "Unauthorized"},
         },
     )
-    @jwt_required(optional=False)
+    @jwt_required(False)
     def delete(self, data):
         user_id = get_jwt().get("sub").get("user_id")  # type: ignore
         poll_service = PollService()
@@ -88,7 +88,7 @@ class GetPolls(MethodView):
             "401": {"description": "Unauthorized"},
         },
     )
-    @jwt_required(optional=False)
+    @jwt_required(False)
     def get(self):
         user_id = get_jwt().get("sub").get("user_id")  # type: ignore
         poll_service = PollService()
@@ -115,7 +115,7 @@ class RenamePoll(MethodView):
             "401": {"description": "Unauthorized"},
         },
     )
-    @jwt_required(optional=False)
+    @jwt_required(False)
     def patch(self, data):
         poll_id = data.get("poll_id")
         user_id = get_jwt().get("sub").get("user_id")  # type: ignore
@@ -136,7 +136,7 @@ class GetPollDetails(MethodView):
             "401": {"description": "Unauthorized"},
         },
     )
-    @jwt_required(optional=False)
+    @jwt_required(False)
     def get(self, data):
         user_id = get_jwt().get("sub").get("user_id")  # type: ignore
         poll_id = data.get("poll_id")
@@ -164,7 +164,7 @@ class AddOption(MethodView):
             "401": {"description": "Unauthorized"},
         },
     )
-    @jwt_required(optional=False)
+    @jwt_required(False)
     def post(self, data):
         user_id = get_jwt().get("sub").get("user_id")  # type: ignore
         poll_id = data.get("poll_id")
@@ -188,7 +188,7 @@ class EditOption(MethodView):
             "401": {"description": "Unauthorized"},
         },
     )
-    @jwt_required(optional=False)
+    @jwt_required(False)
     def patch(self, data):
         option_id = data.get("option_id")
         new_option_text = data.get("new_option_text")

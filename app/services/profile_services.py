@@ -12,6 +12,10 @@ class ProfileService:  # pylint: disable=too-few-public-methods
     ):  # pylint: disable=missing-function-docstring
         return ProfileInfoService.get_my_profile_settings(user_id)
 
+    @classmethod
+    def update_profile(cls, new_profile_data: dict):  # pylint: disable=missing-function-docstring
+        pass
+
 
 class ProfileInfoService:  # pylint: disable=too-few-public-methods
     """Wraps the profile related services."""

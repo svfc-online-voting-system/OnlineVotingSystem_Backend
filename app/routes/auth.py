@@ -73,7 +73,7 @@ class AccountRegistration(MethodView):
             "422": {"description": "Validation error"},
         },
     )
-    @jwt_required(optional=True)
+    @jwt_required(True)
     def post(self, registration_data):
         auth_service.register(registration_data)
         return set_response(
@@ -93,7 +93,7 @@ class Login(MethodView):
             "422": {"description": "Validation error"},
         },
     )
-    @jwt_required(optional=True)
+    @jwt_required(True)
     def post(self, login_data):
         """Login user"""
         auth_service.login(login_data.get("email"), login_data.get("password"))
@@ -129,7 +129,7 @@ class VerifyJWTIdentity(MethodView):
             "401": {"description": "Unauthorized access"},
         },
     )
-    @jwt_required(optional=False)
+    @jwt_required(False)
     def get(self):
         try:
             role = get_jwt().get("sub").get("role")  # type: ignore
@@ -163,7 +163,7 @@ class VerifyTokenResetPassword(MethodView):
             "422": {"description": "Validation error"},
         },
     )
-    @jwt_required(optional=True)
+    @jwt_required(True)
     def patch(self, reset_password_data):
         token = reset_password_data.get("token")
         new_password = reset_password_data.get("new_password")
@@ -183,7 +183,7 @@ class ForgotPassword(MethodView):
             "422": {"description": "Validation error"},
         },
     )
-    @jwt_required(optional=True)
+    @jwt_required(True)
     def patch(self, forgot_password_data):
         email = forgot_password_data.get("email")
         auth_service.send_forgot_password_link(email)
@@ -204,7 +204,7 @@ class OTPVerification(MethodView):
             "422": {"description": "Validation error"},
         },
     )
-    @jwt_required(optional=True)
+    @jwt_required(True)
     def patch(self, otp_data):
         email = otp_data.get("email")
         otp = otp_data.get("otp_code")
@@ -235,7 +235,7 @@ class GenerateOTP(MethodView):
             "422": {"description": "Validation error"},
         },
     )
-    @jwt_required(optional=True)
+    @jwt_required(True)
     def patch(self, otp_data):
         email = otp_data.get("email")
         auth_service.generate_otp(email)
@@ -278,7 +278,7 @@ class ResendVerificationEmail(MethodView):
             "422": {"description": "Validation error"},
         },
     )
-    @jwt_required(optional=True)
+    @jwt_required(True)
     def patch(self, resend_verification_email_data):
         email = resend_verification_email_data.get("email")
         auth_service_resend_verification_email = AuthService()

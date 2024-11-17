@@ -33,7 +33,7 @@ class CastPoll(MethodView):
             "422": {"description": "Validation Error"},
         },
     )
-    @jwt_required(optional=False)
+    @jwt_required(False)
     def post(self, data):
         """Cast a vote for a poll"""
         data["user_id"] = get_jwt().get("sub").get("user_id")  # type: ignore
@@ -54,7 +54,7 @@ class UncastPoll(MethodView):
             "422": {"description": "Validation Error"},
         },
     )
-    @jwt_required(optional=False)
+    @jwt_required(False)
     def delete(self, data):
         """Uncast a vote for a poll"""
         data["user_id"] = get_jwt().get("sub").get("user_id")  # type: ignore
