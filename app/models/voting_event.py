@@ -77,6 +77,16 @@ class VotingEvent(Base):  # pylint: disable=R0903
             "is_deleted": self.is_deleted,
         }
 
+    @classmethod
+    def uuid_to_bin(cls, uuid_str):
+        """Convert string UUID to binary format"""
+        return UUID(uuid_str).bytes
+
+    @classmethod
+    def bin_to_uuid(cls, uuid_bin):
+        """Convert binary UUID to string format"""
+        return str(UUID(bytes=uuid_bin))
+
 
 class VotingEventOperations:
     """
@@ -206,6 +216,39 @@ class VotingEventOperations:
                 )
             )
         ).fetchone()
+        if voting_event is None:
+            raise VotingEventDoesNotExists("Voting event does not exists")
+        return voting_event
+
+    @classmethod
+    def get_voting_event_by_uuid(cls, uuid_str, event_type, user_id):
+        """Retrieves a specific voting event from the database based on UUID and type."""
+        session = get_session()
+        uuid_bin = VotingEvent.uuid_to_bin(uuid_str)
+
+        voting_event = session.execute(
+            select(
+                VotingEvent.uuid,
+                VotingEvent.title,
+                VotingEvent.description,
+                VotingEvent.start_date,
+                VotingEvent.end_date,
+                VotingEvent.status,
+                VotingEvent.created_by,
+                VotingEvent.created_at,
+                VotingEvent.last_modified_at,
+                VotingEvent.approved,
+                VotingEvent.event_type,
+            ).where(
+                and_(
+                    VotingEvent.uuid == uuid_bin,
+                    VotingEvent.is_deleted.is_(False),
+                    VotingEvent.event_type == event_type,
+                    VotingEvent.created_by == user_id,
+                )
+            )
+        ).fetchone()
+
         if voting_event is None:
             raise VotingEventDoesNotExists("Voting event does not exists")
         return voting_event

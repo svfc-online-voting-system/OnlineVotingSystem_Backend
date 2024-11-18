@@ -28,11 +28,13 @@ def refresh_expiring_jwts(response: Response) -> Response:
         Response with refreshed tokens if needed
     """
     try:
+        print("Try block")
         exp_timestamp = get_jwt()["exp"]
         now = datetime.now(timezone.utc)
         target_timestamp = datetime.timestamp(now + timedelta(minutes=30))
 
         if target_timestamp > exp_timestamp:
+            print("Refresh tokens")
             access_token = create_access_token(identity=get_jwt_identity())
             set_access_cookies(response, access_token)
             refresh_token = create_refresh_token(identity=get_jwt_identity())

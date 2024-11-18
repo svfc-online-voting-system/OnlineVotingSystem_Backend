@@ -10,5 +10,5 @@ class TestingConfig(BaseConfig):  # pylint: disable=R0903
     """Testing configuration."""
 
     TESTING = True
-    JWT_ACCESS_TOKEN_EXPIRES = timedelta(minutes=60)
+    JWT_ACCESS_TOKEN_EXPIRES = timedelta(minutes=15)
     MAIL_USERNAME = getenv("MAIL_USERNAME")

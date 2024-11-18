@@ -17,7 +17,7 @@ class BaseConfig:  # pylint: disable=too-few-public-methods
     OPENAPI_SWAGGER_UI_PATH = "/swagger-ui"
 
     JWT_ALGORITHM = "HS256"
-    JWT_ACCESS_TOKEN_EXPIRES = timedelta(hours=1)
+    JWT_ACCESS_TOKEN_EXPIRES = timedelta(minutes=15)
 
     MAIL_SERVER = getenv("MAIL_SERVER")
     MAIL_PORT = getenv("MAIL_PORT")
@@ -38,6 +38,7 @@ class BaseConfig:  # pylint: disable=too-few-public-methods
     JWT_CSRF_METHODS = ["POST", "PUT", "PATCH", "DELETE"]
     JWT_ACCESS_CSRF_HEADER_NAME = "X-CSRF-TOKEN"
     JWT_REFRESH_CSRF_HEADER_NAME = "X-CSRF-TOKEN"
+    JWT_REFRESH_TOKEN_EXPIRES = timedelta(days=30)
     JWT_ACCESS_CSRF_COOKIE_NAME = "X-CSRF-TOKEN"
 
     LOGGING_LEVEL = "INFO"

@@ -14,13 +14,16 @@ from app.schemas.voting_event_query import VotingEventQuerySchema
 from app.utils.response_util import set_response
 
 voting_event_blp = Blueprint(
-    "voting_events", __name__, url_prefix="/api/v1/voting-events"
+    "voting_events",
+    __name__,
+    url_prefix="/api/v1/voting-event",
+    description="Voting events API endpoints for VoteVoyage",
 )
 
 logger = getLogger(name=__name__)
 
 
-@voting_event_blp.route("/v1/user/get-voting-event-by")
+@voting_event_blp.route("/user/get-voting-event-by")
 class GetVotingEventBy(MethodView):
     """Retrieves voting events based on query parameters."""
 
