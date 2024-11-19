@@ -4,6 +4,7 @@ from datetime import datetime
 from uuid import uuid4, UUID
 
 from app.models.audit_log import PollRelatedLogOperations
+from app.models.poll_options import UserPollOptionOperation
 from app.models.voting_event import VotingEventOperations
 
 
@@ -58,6 +59,11 @@ class PollService:
         """Responsible for getting all the polls"""
         return user_id
 
+    @classmethod
+    def get_options(cls, poll_id: int):
+        """Responsible for getting all the options in a poll"""
+        return UserPollService.get_poll_options(poll_id)
+
 
 class PollVotingEventService:
     """Wraps the poll voting event service layer"""
@@ -111,3 +117,12 @@ class PollVotingEventService:
             }
         )
         return str(UUID(bytes=new_poll_data_uuid))
+
+
+class UserPollService:  # pylint: disable=R0903
+    """Wraps the user poll service layer"""
+
+    @staticmethod
+    def get_poll_options(poll_id: int):
+        """Responsible for getting the poll options"""
+        return UserPollOptionOperation.get_all_poll_options(event_id=poll_id)

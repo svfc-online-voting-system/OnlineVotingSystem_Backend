@@ -200,6 +200,31 @@ class EditOption(MethodView):
         )
 
 
+@poll_blp.route("/user/get-options")
+class GetOptions(MethodView):
+    @poll_blp.response(200, ApiResponse)
+    @poll_blp.doc(
+        description="Get the options for a poll",
+        responses={
+            "404": {"description": "Voting event does not exists"},
+            "401": {"description": "Unauthorized"},
+        },
+    )
+    @jwt_required(False)
+    def get(self, data):
+        poll_id = data.get("poll_id")
+        poll_service = PollService()
+        options = poll_service.get_options(poll_id)
+        return set_response(
+            200,
+            {
+                "code": "success",
+                "message": "Options retrieved successfully.",
+                "data": options,
+            },
+        )
+
+
 poll_blp.register_error_handler(NoAuthorizationError, handle_no_authorization_error)
 poll_blp.register_error_handler(
     VotingEventDoesNotExists, handle_voting_event_does_not_exists
