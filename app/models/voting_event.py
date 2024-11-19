@@ -94,6 +94,14 @@ class VotingEvent(Base):  # pylint: disable=R0903
         """Convert binary UUID to string format"""
         return str(UUID(bytes=uuid_bin))
 
+    @classmethod
+    def format_uuid(cls, uuid_str):
+        """Format UUID string with hyphens"""
+        return (
+            f"{uuid_str[:8]}-{uuid_str[8:12]}-{uuid_str[12:16]}-"
+            f"{uuid_str[16:20]}-{uuid_str[20:]}"
+        )
+
 
 class VotingEventOperations:
     """
@@ -234,7 +242,6 @@ class VotingEventOperations:
         try:
             uuid_bin = VotingEvent.uuid_to_bin(uuid_str)
 
-            # Query voting event with poll options
             result = session.execute(
                 select(
                     VotingEvent.uuid,
@@ -250,8 +257,10 @@ class VotingEventOperations:
                     VotingEvent.event_type,
                     PollOption.option_id,
                     PollOption.option_text,
+                    User.username,
                 )
                 .outerjoin(PollOption, VotingEvent.event_id == PollOption.event_id)
+                .join(User, VotingEvent.created_by == User.user_id)
                 .where(
                     and_(
                         VotingEvent.uuid == uuid_bin,
@@ -264,18 +273,16 @@ class VotingEventOperations:
             if not result:
                 raise VotingEventDoesNotExists("Voting event does not exists")
 
-            # First row contains all voting event data
             first_row = result[0]
 
-            # Extract poll options
             poll_options = [
                 {"option_id": row.option_id, "option_text": row.option_text}
                 for row in result
-                if row.option_id is not None  # Filter out null options from outer join
+                if row.option_id is not None
             ]
 
             return {
-                "uuid": UUID(bytes=first_row.uuid).hex,  # type: ignore
+                "uuid": VotingEvent.format_uuid(UUID(bytes=first_row.uuid).hex),
                 "title": first_row.title,
                 "description": first_row.description,
                 "start_date": first_row.start_date,
@@ -286,6 +293,7 @@ class VotingEventOperations:
                 "last_modified_at": first_row.last_modified_at,
                 "event_type": first_row.event_type,
                 "poll_options": poll_options,
+                "creator_username": first_row.username,
             }
         except (OperationalError, DatabaseError, DataError) as err:
             raise err
