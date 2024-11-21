@@ -69,13 +69,8 @@ class GetVotingEvent(MethodView):
     )
     @jwt_required(False)
     def get(self, query_params):
-        get_jwt()
-        print(query_params)
-        event_uuid = query_params.get("uuid")
-        event_type = query_params.get("event_type")
-        print(event_uuid)
-
-        voting_event = VotingEventService.get_voting_event(event_uuid, event_type)
+        query_params["user_id"] = get_jwt().get("sub", {}).get("user_id")
+        voting_event = VotingEventService.get_voting_event(query_params)
         return set_response(200, {"code": "success", "voting_event": voting_event})
 
 

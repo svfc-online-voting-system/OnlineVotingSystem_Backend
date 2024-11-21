@@ -1,5 +1,6 @@
 """ Service routes for poll related endpoints and validation """
 
+from hashlib import sha256
 from datetime import datetime
 from uuid import uuid4, UUID
 
@@ -8,6 +9,7 @@ from app.models.poll_options import PollOperations, UserPollOptionOperation
 from app.models.poll_votes import PollVoteOperation
 from app.models.voting_event import VotingEvent, VotingEventOperations
 from app.utils.security.encryption import Encryption
+from app.utils.security.hashing import HashPollVoteEntry
 
 
 class PollService:
@@ -67,6 +69,10 @@ class PollService:
         """Responsible for getting all the options in a poll"""
         return UserPollService.get_poll_options(poll_id)
 
+    def has_user_voted(self, user_id, event_uuid):
+        """Responsible for checking if the user has voted"""
+        return UserPollService.has_user_voted(user_id, event_uuid)
+
 
 class PollVotingEventService:
     """Wraps the poll voting event service layer"""
@@ -121,6 +127,13 @@ class PollVotingEventService:
         )
         return str(UUID(bytes=new_poll_data_uuid))
 
+    @staticmethod
+    def get_vote_count(event_uuid: str) -> int:
+        """Responsible for getting the vote count"""
+        event_uuid_bin = VotingEvent.uuid_to_bin(event_uuid)
+        hashed_event_uuid = sha256(event_uuid_bin).hexdigest()
+        return PollVoteOperation.get_vote_count(hashed_event_uuid)
+
 
 class UserPollService:  # pylint: disable=R0903
     """Wraps the user poll service layer"""
@@ -136,13 +149,31 @@ class UserPollService:  # pylint: disable=R0903
         user_id = data.get("user_id")
         event_uuid_bin = VotingEvent.uuid_to_bin(data.get("event_uuid"))
         poll_option_id = data.get("poll_option_id")
+
         VotingEventOperations.get_voting_event_by_uuid(data.get("event_uuid"), "poll")
-        is_poll_option_valid = PollOperations.is_poll_option_id_exists(poll_option_id)  # type: ignore
+        is_poll_option_valid = PollOperations.is_poll_option_id_exists(
+            poll_option_id  # type: ignore
+        )
         if not is_poll_option_valid:
             raise ValueError("Poll option ID does not exist")
+
         encryption = Encryption()
+        hash_poll_vote_entry = HashPollVoteEntry()
+
         encrypted_data = encryption.encrypt_poll_cast_entry(
             user_id, event_uuid_bin, poll_option_id
         )
-        casted_at = datetime.now()
-        PollVoteOperation.add_new_poll_vote(encrypted_data, casted_at)
+        event_uuid_hash, user_vote_hash = hash_poll_vote_entry.create_poll_vote_hashes(
+            user_id, event_uuid_bin  # type: ignore
+        )
+        PollVoteOperation.add_new_poll_vote(
+            encrypted_data, datetime.now(), event_uuid_hash, user_vote_hash
+        )
+
+    @staticmethod
+    def has_user_voted(user_id: int, event_uuid: str) -> bool:
+        """Responsible for checking if the user has voted"""
+        user_vote_hash = sha256(
+            f"{user_id}-{VotingEvent.uuid_to_bin(event_uuid).hex()}".encode()
+        ).hexdigest()
+        return PollVoteOperation.has_user_voted(user_vote_hash)
