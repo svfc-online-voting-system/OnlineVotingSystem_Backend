@@ -9,6 +9,7 @@ class BaseConfig:  # pylint: disable=too-few-public-methods
 
     SECRET_KEY = getenv("SECRET_KEY")
     JWT_SECRET_KEY = getenv("JWT_SECRET_KEY")
+    ENCRYPTION_KEY = getenv("ENCRYPTION_KEY")
 
     API_TITLE = "VoteVoyage API"
     API_VERSION = "v1"

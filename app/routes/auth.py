@@ -132,7 +132,7 @@ class VerifyJWTIdentity(MethodView):
     @jwt_required(False)
     def get(self):
         try:
-            role = get_jwt().get("sub").get("role")  # type: ignore
+            role = get_jwt().get("role")
             return set_response(200, {"code": "success", "message": role})
         except ExpiredSignatureError:
             logger.warning("JWT token has expired")

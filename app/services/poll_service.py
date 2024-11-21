@@ -4,8 +4,10 @@ from datetime import datetime
 from uuid import uuid4, UUID
 
 from app.models.audit_log import PollRelatedLogOperations
-from app.models.poll_options import UserPollOptionOperation
-from app.models.voting_event import VotingEventOperations
+from app.models.poll_options import PollOperations, UserPollOptionOperation
+from app.models.poll_votes import PollVoteOperation
+from app.models.voting_event import VotingEvent, VotingEventOperations
+from app.utils.security.encryption import Encryption
 
 
 class PollService:
@@ -46,6 +48,7 @@ class PollService:
     @classmethod
     def cast_poll_vote(cls, data):
         """Responsible for casting a vote"""
+        return UserPollService.cast_poll_vote(data)
 
     @classmethod
     def uncast_poll_vote(cls, vote_info: dict):
@@ -126,3 +129,20 @@ class UserPollService:  # pylint: disable=R0903
     def get_poll_options(poll_id: int):
         """Responsible for getting the poll options"""
         return UserPollOptionOperation.get_all_poll_options(event_id=poll_id)
+
+    @staticmethod
+    def cast_poll_vote(data: dict):
+        """Responsible for casting a vote encrypting data that can be linked to the user."""
+        user_id = data.get("user_id")
+        event_uuid_bin = VotingEvent.uuid_to_bin(data.get("event_uuid"))
+        poll_option_id = data.get("poll_option_id")
+        VotingEventOperations.get_voting_event_by_uuid(data.get("event_uuid"), "poll")
+        is_poll_option_valid = PollOperations.is_poll_option_id_exists(poll_option_id)  # type: ignore
+        if not is_poll_option_valid:
+            raise ValueError("Poll option ID does not exist")
+        encryption = Encryption()
+        encrypted_data = encryption.encrypt_poll_cast_entry(
+            user_id, event_uuid_bin, poll_option_id
+        )
+        casted_at = datetime.now()
+        PollVoteOperation.add_new_poll_vote(encrypted_data, casted_at)

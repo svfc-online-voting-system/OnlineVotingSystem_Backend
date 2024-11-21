@@ -33,11 +33,12 @@ class CastPoll(MethodView):
             "422": {"description": "Validation Error"},
         },
     )
-    @jwt_required(False)
+    @jwt_required(optional=False)
     def post(self, data):
         """Cast a vote for a poll"""
-        data["user_id"] = get_jwt().get("sub").get("user_id")  # type: ignore
+        data["user_id"] = get_jwt().get("sub", {}).get("user_id")
         poll_service = PollService()
+        print(data.get("event_uuid"), len(data.get("event_uuid")))
         poll_service.cast_poll_vote(data)
         return set_response(
             201, {"code": "success", "message": "The vote has been cast."}
@@ -57,7 +58,7 @@ class UncastPoll(MethodView):
     @jwt_required(False)
     def delete(self, data):
         """Uncast a vote for a poll"""
-        data["user_id"] = get_jwt().get("sub").get("user_id")  # type: ignore
+        data["user_id"] = get_jwt().get("sub", {}).get("user_id")
         poll_service = PollService()
         poll_service.uncast_poll_vote(data)
         return set_response(

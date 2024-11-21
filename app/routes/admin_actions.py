@@ -27,12 +27,11 @@ admin_action_blp = Blueprint(
 )
 
 
-# Custom admin decorator
 def admin_required():
     def wrapper(fn):
         @wraps(fn)
         def decorator(*args, **kwargs):
-            is_admin = get_jwt().get("sub", {}).get("role") == "admin"
+            is_admin = get_jwt().get("role") == "admin"
             if not is_admin:
                 return set_response(
                     401, {"code": "unauthorized", "message": "Admin access required"}

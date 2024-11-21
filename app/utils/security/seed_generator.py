@@ -7,7 +7,7 @@ from hashlib import sha256
 from psutil import Process
 
 
-def get_enhanced_seed() -> str:
+def generate_seed() -> str:
     """
     Generate a high-entropy seed for cryptographic operations.
 

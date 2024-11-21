@@ -5,8 +5,6 @@ from logging import getLogger
 
 from flask import Flask, Response
 from flask_jwt_extended import (
-    create_refresh_token,
-    create_access_token,
     get_jwt,
     set_access_cookies,
     set_refresh_cookies,
@@ -15,12 +13,14 @@ from flask_jwt_extended import (
 
 from flask_jwt_extended.exceptions import InvalidHeaderError
 
+from app.services.token_service import TokenService
+
 logger = getLogger(__name__)
 
 
 def refresh_expiring_jwts(response: Response) -> Response:
     """
-    Refresh JWT tokens if they're close to expiring.
+    Refresh JWT and CSRF tokens if they're close to expiring.
 
     Args:
         response: Flask response object
@@ -28,18 +28,29 @@ def refresh_expiring_jwts(response: Response) -> Response:
         Response with refreshed tokens if needed
     """
     try:
-        print("Try block")
-        exp_timestamp = get_jwt()["exp"]
+        # Get current JWT claims
+        jwt_data = get_jwt()
+        exp_timestamp = jwt_data["exp"]
         now = datetime.now(timezone.utc)
         target_timestamp = datetime.timestamp(now + timedelta(minutes=30))
 
         if target_timestamp > exp_timestamp:
-            print("Refresh tokens")
-            access_token = create_access_token(identity=get_jwt_identity())
+            print("refresh  token")
+            # Get identity from current token
+            identity = get_jwt_identity()
+            role = jwt_data["sub"].get("role")
+
+            # Generate new tokens with same claims
+            token_service = TokenService()
+            access_token, refresh_token = token_service.generate_jwt_csrf_token(
+                email=identity["email"], user_id=identity["user_id"], role=role
+            )
+
+            # Set new tokens in cookies
             set_access_cookies(response, access_token)
-            refresh_token = create_refresh_token(identity=get_jwt_identity())
             set_refresh_cookies(response, refresh_token)
-            logger.info("JWT tokens refreshed")
+
+            logger.info("JWT and CSRF tokens refreshed")
 
         return response
 

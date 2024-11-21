@@ -2,6 +2,7 @@
 
 # pylint: disable=missing-function-docstring, missing-class-docstring
 
+from functools import wraps
 from logging import getLogger
 
 from flask.views import MethodView
@@ -35,6 +36,22 @@ poll_blp = Blueprint(
 )
 
 
+def user_role_and_user_id_required():
+    def wrapper(fn):
+        @wraps(fn)
+        def decorator(*args, **kwargs):
+            user_id = get_jwt().get("sub", {}).get("user_id")
+            if not user_id:
+                return set_response(
+                    401, {"code": "unauthorized", "message": "User access required"}
+                )
+            return fn(*args, **kwargs)
+
+        return decorator
+
+    return wrapper
+
+
 @poll_blp.route("/editor/add-poll")
 class AddPoll(MethodView):
 
@@ -48,8 +65,9 @@ class AddPoll(MethodView):
         },
     )
     @jwt_required(False)
-    def post(self, data):
-        data["created_by"] = get_jwt().get("sub").get("user_id")  # type: ignore
+    @user_role_and_user_id_required()
+    def post(self, data, user_id):
+        data["created_by"] = user_id
         poll_service = PollService()
         poll_service.add_new_poll(data)
         return set_response(
@@ -70,8 +88,8 @@ class DeletePoll(MethodView):
         },
     )
     @jwt_required(False)
-    def delete(self, data):
-        user_id = get_jwt().get("sub").get("user_id")  # type: ignore
+    @user_role_and_user_id_required()
+    def delete(self, data, user_id):
         poll_service = PollService()
         poll_service.delete_polls(data.get("poll_ids"), user_id)
         return set_response(
@@ -89,8 +107,8 @@ class GetPolls(MethodView):
         },
     )
     @jwt_required(False)
-    def get(self):
-        user_id = get_jwt().get("sub").get("user_id")  # type: ignore
+    @user_role_and_user_id_required()
+    def get(self, user_id):
         poll_service = PollService()
         polls = poll_service.get_polls(user_id)
         return set_response(
@@ -116,9 +134,9 @@ class RenamePoll(MethodView):
         },
     )
     @jwt_required(False)
-    def patch(self, data):
+    @user_role_and_user_id_required()
+    def patch(self, data, user_id):
         poll_id = data.get("poll_id")
-        user_id = get_jwt().get("sub").get("user_id")  # type: ignore
         poll_service = PollService()
         poll_service.rename_poll_title(poll_id=poll_id, user_id=user_id)
         return set_response(
@@ -137,8 +155,8 @@ class GetPollDetails(MethodView):
         },
     )
     @jwt_required(False)
-    def get(self, data):
-        user_id = get_jwt().get("sub").get("user_id")  # type: ignore
+    @user_role_and_user_id_required()
+    def get(self, data, user_id):
         poll_id = data.get("poll_id")
         poll_service = PollService()
         details = poll_service.get_poll_details(user_id, poll_id)
@@ -165,8 +183,8 @@ class AddOption(MethodView):
         },
     )
     @jwt_required(False)
-    def post(self, data):
-        user_id = get_jwt().get("sub").get("user_id")  # type: ignore
+    @user_role_and_user_id_required()
+    def post(self, data, user_id):
         poll_id = data.get("poll_id")
         option_text = data.get("option")
         poll_service = PollService()
@@ -189,10 +207,10 @@ class EditOption(MethodView):
         },
     )
     @jwt_required(False)
-    def patch(self, data):
+    @user_role_and_user_id_required()
+    def patch(self, data, user_id):
         option_id = data.get("option_id")
         new_option_text = data.get("new_option_text")
-        user_id = get_jwt().get("sub").get("user_id")  # type: ignore
         poll_service = PollService()
         poll_service.edit_option(option_id, new_option_text, user_id)
         return set_response(

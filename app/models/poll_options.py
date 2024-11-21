@@ -104,6 +104,33 @@ class PollOperations:
         finally:
             session.close()
 
+    @classmethod
+    def is_poll_option_id_exists(cls, option_id: int) -> bool:
+        """
+        Check if the poll option id exists.
+
+        Args:
+            option_id (int): ID of the poll option to check
+
+        Returns:
+            bool: True if option exists, False otherwise
+
+        Raises:
+            DatabaseError: If database operation fails
+            OperationalError: If database is unreachable
+        """
+        session = get_session()
+        try:
+            poll_option_statement = select(PollOption).where(
+                PollOption.option_id == option_id
+            )
+            result = session.execute(poll_option_statement).fetchone()
+            return result is not None
+        except (DatabaseError, OperationalError) as err:
+            raise err
+        finally:
+            session.close()
+
 
 class UserPollOptionOperation:  # pylint: disable=R0903
     """User Related Poll Option Operations"""

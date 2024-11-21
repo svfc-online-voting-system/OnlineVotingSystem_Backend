@@ -62,7 +62,7 @@ def handle_password_reset_link_invalid_exception(error):
 def handle_password_incorrect_exception(error):
     """This function handles password errors."""
     if isinstance(error, PasswordIncorrectException):
-        return handle_error(error, 400, "password_error", "Invalid credentials.")
+        return handle_error(error, 400, "password_error", "Incorrect password.")
     raise error
 
 
