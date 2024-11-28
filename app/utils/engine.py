@@ -21,7 +21,6 @@ logger.addHandler(console_handler)
 
 
 DATABASE_URL = f"{getenv('DATABASE_BASE_URL', "").rstrip('/')}"
-print(DATABASE_URL)
 
 engine = create_engine(DATABASE_URL)
 
