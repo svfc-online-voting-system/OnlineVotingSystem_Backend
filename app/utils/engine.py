@@ -1,13 +1,14 @@
 """
     This is responsible for initializing the Database engine and session
 """
+
 from os import getenv
 import logging
 from logging import FileHandler, StreamHandler, getLogger
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-file_handler = FileHandler('authentication.logs')
+file_handler = FileHandler("authentication.logs")
 file_handler.setLevel(logging.WARNING)
 
 console_handler = StreamHandler()
@@ -19,7 +20,7 @@ logger.addHandler(file_handler)
 logger.addHandler(console_handler)
 
 
-DATABASE_URL = f"{getenv('DATABASE_BASE_URL')}"
+DATABASE_URL = f"{getenv('DATABASE_BASE_URL', "").rstrip('/')}"
 
 engine = create_engine(DATABASE_URL)
 
@@ -27,10 +28,10 @@ session_local = sessionmaker(bind=engine, autocommit=False, autoflush=False)
 
 
 def get_engine():
-    """ Return the engine """
+    """Return the engine"""
     return engine
 
 
 def get_session():
-    """ Returns the session """
+    """Returns the session"""
     return session_local()

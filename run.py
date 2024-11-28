@@ -1,6 +1,6 @@
 """ This module is used to run the Flask app. """
 
-# pylint: disable=C0413
+# pylint: disable=C0413, W0621
 
 from os import getenv
 
@@ -24,18 +24,44 @@ def create_ssl_context():
     return ssl_context
 
 
+configured_ssl_context = create_ssl_context()
+
 ENVIRONMENT = getenv("ENVIRONMENT", "")
 
 IS_PRODUCTION = ENVIRONMENT == "production"
 
-app = create_app()
-CORS(
-    app,
-    supports_credentials=True,
-    origins=[getenv("LOCAL_FRONTEND_URL", ""), getenv("LIVE_FRONTEND_URL", "")],
-)
 
-configured_ssl_context = create_ssl_context()
+def create_app_with_cors():
+    """Creates Flask app with proper CORS configuration"""
+    app = create_app()
+
+    allowed_origins = [
+        getenv("LOCAL_FRONTEND_URL", "https://localhost:4200").rstrip("/"),
+        getenv("LIVE_FRONTEND_URL", "").rstrip("/"),
+        "https://online-voting-system-657c8.firebaseapp.com/",
+    ]
+
+    CORS(
+        app,
+        resources={
+            r"/api/*": {
+                "origins": allowed_origins,
+                "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+                "allow_headers": [
+                    "Content-Type",
+                    "Authorization",
+                    "Access-Control-Allow-Credentials",
+                    "X-CSRF-TOKEN",
+                ],
+                "supports_credentials": True,
+                "expose_headers": ["Content-Range", "X-Content-Range"],
+            }
+        },
+    )
+    return app
+
+
+app = create_app_with_cors()
 
 if __name__ == "__main__":
     if IS_PRODUCTION:
