@@ -19,14 +19,7 @@ logger.addHandler(file_handler)
 logger.addHandler(console_handler)
 
 
-DATABASE_URL = (
-    f"{getenv('DATABASE_BASE_URL')}"
-    f"{getenv('DATABASE_USERNAME')}:"
-    f"{getenv('DATABASE_PASSWORD')}@"
-    f"{getenv('DATABASE_HOSTNAME')}:"
-    f"{getenv('DATABASE_PORT')}/"
-    f"{getenv('DATABASE_NAME')}"
-)
+DATABASE_URL = f"{getenv('DATABASE_BASE_URL')}"
 
 engine = create_engine(DATABASE_URL)
 
