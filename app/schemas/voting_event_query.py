@@ -37,3 +37,7 @@ class GetVotingEventQuerySchema(Schema):
         """Remove hyphens from the uuid"""
         data["uuid"] = data["uuid"].replace("-", "")
         return data
+
+
+class GetVotingStatisticsQuerySchema(GetVotingEventQuerySchema):
+    """Query Schema for fetching voting statistics"""

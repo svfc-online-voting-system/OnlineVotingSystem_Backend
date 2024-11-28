@@ -100,3 +100,30 @@ class PollVoteOperation:  # pylint: disable=R0903
             raise err
         finally:
             session.close()
+
+
+class StatisticsOperation:  # pylint: disable=R0903
+    """Class to handle statistics operations."""
+
+    @staticmethod
+    def get_poll_tally(event_uuid_hash: str) -> list[dict]:
+        """Get the poll tally
+
+        Args:
+            event_uuid_hash (str): Hash of the event UUID
+
+        Returns:
+            list[dict]: List of poll vote dictionaries
+        """
+        session = get_session()
+        try:
+            respondents = (
+                session.query(PollVotes)
+                .filter(PollVotes.event_uuid_hash == event_uuid_hash)
+                .all()
+            )
+            return [vote.to_dict() for vote in respondents]
+        except (OperationalError, DatabaseError) as err:
+            raise err
+        finally:
+            session.close()

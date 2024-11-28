@@ -31,6 +31,14 @@ class PollOption(Base):  # pylint: disable=R0903
 
     voting_event = relationship("VotingEvent", back_populates="poll_option")
 
+    def to_dict(self) -> dict:
+        """Converts the model instance to a dictionary."""
+        return {
+            "option_id": self.option_id,
+            "event_id": self.event_id,
+            "option_text": self.option_text,
+        }
+
 
 class PollOperations:
     """Class to handle poll operations"""
@@ -39,10 +47,10 @@ class PollOperations:
     def get_poll_options(cls, event_id: int):  # pylint: disable=C0116
         session = get_session()
         try:
-            poll_options_statement = select(PollOption).where(
-                PollOption.event_id == event_id
+            poll_options = (
+                session.query(PollOption).where(PollOption.event_id == event_id).all()
             )
-            return session.execute(poll_options_statement).fetchall()
+            return [poll_option.to_dict() for poll_option in poll_options]
         except (
             DatabaseError,
             OperationalError,

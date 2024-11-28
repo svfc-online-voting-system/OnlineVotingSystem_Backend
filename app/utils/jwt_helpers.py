@@ -35,7 +35,6 @@ def refresh_expiring_jwts(response: Response) -> Response:
         target_timestamp = datetime.timestamp(now + timedelta(minutes=30))
 
         if target_timestamp > exp_timestamp:
-            print("refresh  token")
             # Get identity from current token
             identity = get_jwt_identity()
             role = jwt_data["sub"].get("role")

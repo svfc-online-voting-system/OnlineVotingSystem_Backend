@@ -300,6 +300,26 @@ class VotingEventOperations:
         finally:
             session.close()
 
+    @classmethod
+    def get_event_id_from_uuid(cls, uuid_str, event_type):
+        """Retrieves the event ID from the UUID."""
+        session = get_session()
+        try:
+            uuid_bin = VotingEvent.uuid_to_bin(uuid_str)
+            result = session.execute(
+                select(VotingEvent.event_id).where(
+                    and_(
+                        VotingEvent.uuid == uuid_bin,
+                        VotingEvent.event_type == event_type,
+                    )
+                )
+            ).fetchone()
+            return result.event_id if result else None
+        except (OperationalError, DatabaseError) as err:
+            raise err
+        finally:
+            session.close()
+
 
 class AdminOperations:
     """
