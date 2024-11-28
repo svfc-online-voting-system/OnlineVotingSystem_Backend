@@ -9,9 +9,16 @@ class BaseConfig:  # pylint: disable=too-few-public-methods
 
     SECRET_KEY = getenv("SECRET_KEY")
     JWT_SECRET_KEY = getenv("JWT_SECRET_KEY")
+    ENCRYPTION_KEY = getenv("ENCRYPTION_KEY")
+
+    API_TITLE = "VoteVoyage API"
+    API_VERSION = "v1"
+    OPENAPI_VERSION = "3.0.2"
+    OPENAPI_URL_PREFIX = "/"
+    OPENAPI_SWAGGER_UI_PATH = "/swagger-ui"
 
     JWT_ALGORITHM = "HS256"
-    JWT_ACCESS_TOKEN_EXPIRES = timedelta(hours=1)
+    JWT_ACCESS_TOKEN_EXPIRES = timedelta(minutes=15)
 
     MAIL_SERVER = getenv("MAIL_SERVER")
     MAIL_PORT = getenv("MAIL_PORT")
@@ -32,6 +39,7 @@ class BaseConfig:  # pylint: disable=too-few-public-methods
     JWT_CSRF_METHODS = ["POST", "PUT", "PATCH", "DELETE"]
     JWT_ACCESS_CSRF_HEADER_NAME = "X-CSRF-TOKEN"
     JWT_REFRESH_CSRF_HEADER_NAME = "X-CSRF-TOKEN"
+    JWT_REFRESH_TOKEN_EXPIRES = timedelta(days=30)
     JWT_ACCESS_CSRF_COOKIE_NAME = "X-CSRF-TOKEN"
 
     LOGGING_LEVEL = "INFO"

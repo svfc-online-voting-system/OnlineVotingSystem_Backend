@@ -62,12 +62,12 @@ def handle_password_reset_link_invalid_exception(error):
 def handle_password_incorrect_exception(error):
     """This function handles password errors."""
     if isinstance(error, PasswordIncorrectException):
-        return handle_error(error, 400, "password_error", "Invalid credentials.")
+        return handle_error(error, 400, "password_error", "Incorrect password.")
     raise error
 
 
 def handle_email_already_taken(error):
     """This function handles email already taken errors."""
     if isinstance(error, EmailAlreadyTaken):
-        return handle_error(error, 400, "email_already_taken", "Email already taken.")
+        return handle_error(error, 409, "email_already_taken", "Email already taken.")
     raise error

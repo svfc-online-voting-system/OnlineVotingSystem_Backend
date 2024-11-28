@@ -23,6 +23,7 @@ from sqlalchemy.orm import relationship
 
 from app.exception.voting_event_exception import VotingEventDoesNotExists
 from app.models.base import Base
+from app.models.poll_options import PollOption
 from app.models.user import User
 from app.utils.engine import get_session
 
@@ -59,6 +60,12 @@ class VotingEvent(Base):  # pylint: disable=R0903
         cascade="save-update, merge, expunge, refresh-expire",
     )
 
+    poll_option = relationship(
+        "PollOption",
+        back_populates="voting_event",
+        cascade="all, delete-orphan",
+    )
+
     def to_dict(self):
         """Converts the model to a dictionary."""
         return {
@@ -76,6 +83,24 @@ class VotingEvent(Base):  # pylint: disable=R0903
             "approved": self.approved,
             "is_deleted": self.is_deleted,
         }
+
+    @classmethod
+    def uuid_to_bin(cls, uuid_str):
+        """Convert string UUID to binary format"""
+        return UUID(uuid_str).bytes
+
+    @classmethod
+    def bin_to_uuid(cls, uuid_bin):
+        """Convert binary UUID to string format"""
+        return str(UUID(bytes=uuid_bin))
+
+    @classmethod
+    def format_uuid(cls, uuid_str):
+        """Format UUID string with hyphens"""
+        return (
+            f"{uuid_str[:8]}-{uuid_str[8:12]}-{uuid_str[12:16]}-"
+            f"{uuid_str[16:20]}-{uuid_str[20:]}"
+        )
 
 
 class VotingEventOperations:
@@ -210,6 +235,91 @@ class VotingEventOperations:
             raise VotingEventDoesNotExists("Voting event does not exists")
         return voting_event
 
+    @classmethod
+    def get_voting_event_by_uuid(cls, uuid_str, event_type: str):
+        """Retrieves a specific voting event from the database based on UUID and type."""
+        session = get_session()
+        try:
+            uuid_bin = VotingEvent.uuid_to_bin(uuid_str)
+
+            result = session.execute(
+                select(
+                    VotingEvent.uuid,
+                    VotingEvent.title,
+                    VotingEvent.description,
+                    VotingEvent.start_date,
+                    VotingEvent.end_date,
+                    VotingEvent.status,
+                    VotingEvent.created_by,
+                    VotingEvent.created_at,
+                    VotingEvent.last_modified_at,
+                    VotingEvent.approved,
+                    VotingEvent.event_type,
+                    PollOption.option_id,
+                    PollOption.option_text,
+                    User.username,
+                )
+                .outerjoin(PollOption, VotingEvent.event_id == PollOption.event_id)
+                .join(User, VotingEvent.created_by == User.user_id)
+                .where(
+                    and_(
+                        VotingEvent.uuid == uuid_bin,
+                        VotingEvent.event_type == event_type,
+                        VotingEvent.is_deleted.is_(False),
+                    )
+                )
+            ).fetchall()
+
+            if not result:
+                raise VotingEventDoesNotExists("Voting event does not exists")
+
+            first_row = result[0]
+
+            poll_options = [
+                {"option_id": row.option_id, "option_text": row.option_text}
+                for row in result
+                if row.option_id is not None
+            ]
+
+            return {
+                "uuid": VotingEvent.format_uuid(UUID(bytes=first_row.uuid).hex),
+                "title": first_row.title,
+                "description": first_row.description,
+                "start_date": first_row.start_date,
+                "end_date": first_row.end_date,
+                "status": first_row.status,
+                "created_by": first_row.created_by,
+                "created_at": first_row.created_at,
+                "last_modified_at": first_row.last_modified_at,
+                "event_type": first_row.event_type,
+                "poll_options": poll_options,
+                "creator_username": first_row.username,
+            }
+        except (OperationalError, DatabaseError, DataError) as err:
+            raise err
+        finally:
+            session.close()
+
+    @classmethod
+    def get_event_id_from_uuid(cls, uuid_str, event_type):
+        """Retrieves the event ID from the UUID."""
+        session = get_session()
+        try:
+            uuid_bin = VotingEvent.uuid_to_bin(uuid_str)
+            result = session.execute(
+                select(VotingEvent.event_id).where(
+                    and_(
+                        VotingEvent.uuid == uuid_bin,
+                        VotingEvent.event_type == event_type,
+                    )
+                )
+            ).fetchone()
+            return result.event_id if result else None
+        except (OperationalError, DatabaseError) as err:
+            raise err
+        finally:
+            session.close()
+
 
 class AdminOperations:
     """
@@ -303,11 +413,18 @@ class UserOperations:  # pylint: disable=R0903
                 event = result[0]  # VotingEvent object
                 event_uuid_bytes = result.event_uuid
                 user_uuid_bytes = result.user_uuid
+                hex_uuid = UUID(bytes=event_uuid_bytes).hex
 
                 voting_events_list.append(
                     {
                         "id": event.event_id,
-                        "event_uuid": UUID(bytes=event_uuid_bytes).hex,  # type: ignore
+                        "event_uuid": (
+                            f"{hex_uuid[:8]}-"
+                            f"{hex_uuid[8:12]}-"
+                            f"{hex_uuid[12:16]}-"
+                            f"{hex_uuid[16:20]}-"
+                            f"{hex_uuid[20:]}"
+                        ),
                         "title": event.title,
                         "description": event.description,
                         "event_type": event.event_type,

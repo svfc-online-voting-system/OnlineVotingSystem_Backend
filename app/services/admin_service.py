@@ -9,6 +9,8 @@ class AdminService:  # pylint: disable=R0903
     @classmethod
     def approve_voting_event(cls, vote_metadata: dict):
         """Service that will call and validate the approval of the vote"""
+        print(vote_metadata.get("voting_event_id"))
+        print(vote_metadata.get("admin_id"))
 
     @classmethod
     def reject_voting_event(cls, vote_metadata: dict):

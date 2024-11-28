@@ -39,7 +39,7 @@ from app.models.user import (
     EmailVerificationOperations,
 )
 from app.utils.email_utility import send_mail
-from app.utils.security import get_enhanced_seed
+from app.utils.security.seed_generator import generate_seed
 
 logger = getLogger(__name__)
 
@@ -168,7 +168,7 @@ class OTPService:  # pylint: disable=R0903
 
     @staticmethod
     def generate_otp(email):  # pylint: disable=C0116
-        seed = get_enhanced_seed()
+        seed = generate_seed()
         seven_digit_otp = pyotp.TOTP(
             base64.b32encode(bytes.fromhex(seed)).decode("UTF-8"),
             digits=7,

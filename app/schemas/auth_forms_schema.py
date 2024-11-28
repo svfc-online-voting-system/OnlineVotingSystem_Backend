@@ -97,5 +97,9 @@ class OTPGenerationSchema(EmailBaseSchema):
     """OTP Generation Schema represents the shape of data that it expects to receive."""
 
 
-class EmailVerificationSchema(EmailBaseSchema):
+class EmailVerificationSchema(Schema):
     """Email Verification Schema represents the shape of data that it expects to receive."""
+    token = fields.Str(
+        required=True,
+        validate=validate.Length(min=171, max=171),
+    )

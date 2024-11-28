@@ -26,14 +26,18 @@ class PollOption(Base):  # pylint: disable=R0903
     __tablename__ = "poll_option"
 
     option_id = Column(Integer, primary_key=True, autoincrement=True, nullable=False)
-    event_id = Column(
-        Integer, ForeignKey("vote_types.vote_type_id"), nullable=False
-    )  # Reference to vote_types
+    event_id = Column(Integer, ForeignKey("voting_event.event_id"), nullable=False)
     option_text = Column(VARCHAR(length=255), nullable=False)
 
-    voting_event = relationship(
-        "VotingEvent", back_populates="poll_option", cascade="all, restrict"
-    )
+    voting_event = relationship("VotingEvent", back_populates="poll_option")
+
+    def to_dict(self) -> dict:
+        """Converts the model instance to a dictionary."""
+        return {
+            "option_id": self.option_id,
+            "event_id": self.event_id,
+            "option_text": self.option_text,
+        }
 
 
 class PollOperations:
@@ -43,14 +47,12 @@ class PollOperations:
     def get_poll_options(cls, event_id: int):  # pylint: disable=C0116
         session = get_session()
         try:
-            poll_options_statement = select(PollOption).where(
-                PollOption.event_id == event_id
+            poll_options = (
+                session.query(PollOption).where(PollOption.event_id == event_id).all()
             )
-            return session.execute(poll_options_statement).fetchall()
+            return [poll_option.to_dict() for poll_option in poll_options]
         except (
             DatabaseError,
-            IntegrityError,
-            DataError,
             OperationalError,
         ) as err:
             raise err
@@ -106,6 +108,53 @@ class PollOperations:
             session.commit()
         except (IntegrityError, DataError, DatabaseError, OperationalError) as err:
             session.rollback()
+            raise err
+        finally:
+            session.close()
+
+    @classmethod
+    def is_poll_option_id_exists(cls, option_id: int) -> bool:
+        """
+        Check if the poll option id exists.
+
+        Args:
+            option_id (int): ID of the poll option to check
+
+        Returns:
+            bool: True if option exists, False otherwise
+
+        Raises:
+            DatabaseError: If database operation fails
+            OperationalError: If database is unreachable
+        """
+        session = get_session()
+        try:
+            poll_option_statement = select(PollOption).where(
+                PollOption.option_id == option_id
+            )
+            result = session.execute(poll_option_statement).fetchone()
+            return result is not None
+        except (DatabaseError, OperationalError) as err:
+            raise err
+        finally:
+            session.close()
+
+
+class UserPollOptionOperation:  # pylint: disable=R0903
+    """User Related Poll Option Operations"""
+
+    @classmethod
+    def get_all_poll_options(cls, event_id: int):  # pylint: disable=C0116
+        session = get_session()
+        try:
+            poll_options_statement = select(PollOption).where(
+                PollOption.event_id == event_id
+            )
+            return session.execute(poll_options_statement).fetchall()
+        except (
+            DatabaseError,
+            OperationalError,
+        ) as err:
             raise err
         finally:
             session.close()

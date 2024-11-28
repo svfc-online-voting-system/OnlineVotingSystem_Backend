@@ -67,3 +67,46 @@ class PollVotingEventSchema(Schema):
         if end_date < right_now:
             raise ValidationError("End date must be in the future")
         return data
+
+
+class DeletePollEventsSchema(Schema):
+    """This class contains the schema validation for the delete polling events."""
+
+    poll_ids = fields.List(
+        fields.Int(
+            required=True,
+        ),
+        required=True,
+    )
+
+    # noinspection PyUnusedLocal
+    @post_load
+    def validate_poll_id(self, data, **kwargs):  # pylint: disable=unused-argument
+        """This will check if the poll id is a list."""
+        poll_id = data.get("poll_id")
+        if not poll_id:
+            raise ValidationError("Poll ID is required")
+        if not isinstance(poll_id, list):
+            raise ValidationError("Poll ID must be a list")
+        return data
+
+
+class OptionSchema(Schema):
+    """This class contains the schema validation for adding a new option to a poll."""
+
+    poll_id = fields.Int(
+        required=True,
+        error_messages={
+            "required": "Poll ID is required",
+            "validator_failed": "Poll ID is invalid",
+        },
+    )
+
+    option = fields.Str(
+        required=True,
+        validate=validate.Length(min=3, max=255),
+        error_messages={
+            "required": "Option is required",
+            "validator_failed": "Option is invalid",
+        },
+    )
