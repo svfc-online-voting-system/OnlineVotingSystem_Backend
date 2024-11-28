@@ -35,10 +35,10 @@ def create_app_with_cors():
     """Creates Flask app with proper CORS configuration"""
     app = create_app()
 
-    # Define allowed origins
     allowed_origins = [
         getenv("LOCAL_FRONTEND_URL", "https://localhost:4200").rstrip("/"),
         getenv("LIVE_FRONTEND_URL", "").rstrip("/"),
+        "https://online-voting-system-657c8.firebaseapp.com/",
     ]
 
     CORS(
