@@ -21,73 +21,75 @@
 """
 
 # pylint: disable=R0801
-
 from datetime import datetime
-
 from sqlalchemy import (
     Column,
     Integer,
     Date,
-    select,
-    update,
-    Boolean,
-    VARCHAR,
-    BINARY,
     DateTime,
+    Boolean,
+    String,
+    LargeBinary,
+    text,
+    UniqueConstraint, update, select,
 )
 from sqlalchemy.exc import IntegrityError, DataError, OperationalError, DatabaseError
-from sqlalchemy.orm import relationship
 from sqlalchemy.sql import expression
+from sqlalchemy.orm import relationship
 
-from app.exception.authorization_exception import (
-    EmailNotFoundException,
-    PasswordResetExpiredException,
-    PasswordResetLinkInvalidException,
-)
 from app.models.base import Base
 from app.utils.engine import get_session
+from app.exception.authorization_exception import (
+    EmailNotFoundException, PasswordResetLinkInvalidException, PasswordResetExpiredException
+)
 
 
 class User(Base):  # pylint: disable=R0903
     """
-    SQLAlchemy model representing a User in the database.
-
-    Contains user authentication fields (username, password), personal information
-    (email, name, DOB), account status flags (verified, admin), and security tokens
-    for password reset and account verification. Links to voting events through
-    relationship.
+    SQLAlchemy model for the 'user' table with PostgreSQL compatibility.
     """
-
+    
     __tablename__ = "user"
-
+    
     user_id = Column(Integer, primary_key=True, autoincrement=True)
-    uuid = Column(
-        BINARY(16),
-        nullable=False,
-        unique=True,
-    )
-    username = Column(VARCHAR(45), unique=True, nullable=False)
-    email = Column(VARCHAR(100), nullable=False)
-    firstname = Column(VARCHAR(100), nullable=False)
-    lastname = Column(VARCHAR(100), nullable=False)
+    uuid = Column(LargeBinary(16), nullable=False, unique=True)
+    username = Column(String(50), nullable=False, unique=True)
+    email = Column(String(100), nullable=False, unique=True)
+    firstname = Column(String(100), nullable=False)
+    lastname = Column(String(100), nullable=False)
     date_of_birth = Column(Date, nullable=False)
-    creation_date = Column(Date, nullable=False)
-    verified_account = Column(Boolean, default=expression.false(), nullable=False)
-    is_admin = Column(Boolean, default=expression.false(), nullable=False)
-    hashed_password = Column(VARCHAR(255), nullable=False)
-    otp_secret = Column(VARCHAR(20), nullable=True)
-    otp_expiry = Column(Date, nullable=True)
-    reset_token = Column(VARCHAR(175), nullable=True)
-    reset_expiry = Column(Date, nullable=True)
-    verification_token = Column(VARCHAR(175), nullable=True)
+    creation_date = Column(
+        DateTime, nullable=False, default=datetime.now()
+    )
+    verified_account = Column(
+        Boolean, nullable=False, server_default=expression.false()
+    )
+    is_admin = Column(Boolean, nullable=False, server_default=expression.false())
+    hashed_password = Column(String(255), nullable=False)
+    otp_secret = Column(String(20), nullable=True, server_default=text("NULL"))
+    otp_expiry = Column(DateTime, nullable=True)
+    reset_token = Column(String(175), nullable=True, server_default=text("NULL"))
+    reset_expiry = Column(DateTime, nullable=True)
+    verification_token = Column(String(175), nullable=True, server_default=text("NULL"))
     verification_expiry = Column(DateTime, nullable=True)
-    deleted_at = Column(Date, nullable=True)
-
+    deleted_at = Column(
+        DateTime, nullable=True, server_default=text("CURRENT_TIMESTAMP")
+    )
+    
+    # Relationships
     voting_event = relationship(
         "VotingEvent",
         back_populates="user",
         cascade="save-update, merge, expunge, refresh-expire",
     )
+    
+    # Ensure unique constraints for PostgreSQL
+    __table_args__ = (
+        UniqueConstraint("uuid", name="user_uuid_key"),
+        UniqueConstraint("email", name="user_email_key"),
+        UniqueConstraint("username", name="user_username_key"),
+    )
+
 
 
 class UserOperations:

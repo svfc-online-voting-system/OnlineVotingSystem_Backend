@@ -1,6 +1,6 @@
 """ SQLAlchemy model for poll_votes table. """
 
-from sqlalchemy import DATETIME, VARCHAR, Column, Integer
+from sqlalchemy import VARCHAR, Column, Integer, TIMESTAMP, UniqueConstraint
 from sqlalchemy.exc import IntegrityError, DataError, OperationalError, DatabaseError
 
 from app.models.base import Base
@@ -8,17 +8,21 @@ from app.utils.engine import get_session
 
 
 class PollVotes(Base):  # pylint: disable=R0903
-    """SQLAlchemy model for poll_votes table."""
-
+    """SQLAlchemy model for the poll_votes table."""
+    
     __tablename__ = "poll_votes"
-
+    
     poll_vote_id = Column(Integer, primary_key=True, autoincrement=True)
     poll_vote_token = Column(VARCHAR(512), nullable=False)
-    voted_at = Column(DATETIME, nullable=False)
+    voted_at = Column(TIMESTAMP, nullable=False, default="CURRENT_TIMESTAMP")
     event_uuid_hash = Column(VARCHAR(64), nullable=False, index=True)
-    user_vote_hash = Column(VARCHAR(64), nullable=False, index=True, unique=True)
-
-    def to_dict(self):
+    user_vote_hash = Column(VARCHAR(64), nullable=False, unique=True, index=True)
+    
+    __table_args__ = (
+        UniqueConstraint("user_vote_hash", name="poll_votes_user_vote_hash_key"),
+    )
+    
+    def to_dict(self) -> dict:
         """Converts the model instance to a dictionary."""
         return {
             "poll_vote_id": self.poll_vote_id,
@@ -27,6 +31,7 @@ class PollVotes(Base):  # pylint: disable=R0903
             "event_uuid_hash": self.event_uuid_hash,
             "user_vote_hash": self.user_vote_hash,
         }
+
 
 
 class PollVoteOperation:  # pylint: disable=R0903

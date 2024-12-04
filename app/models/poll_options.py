@@ -21,16 +21,19 @@ from app.utils.engine import get_session
 
 
 class PollOption(Base):  # pylint: disable=R0903
-    """Class to represent the poll options table"""
-
+    """Class to represent the poll options table."""
+    
     __tablename__ = "poll_option"
-
+    
     option_id = Column(Integer, primary_key=True, autoincrement=True, nullable=False)
-    event_id = Column(Integer, ForeignKey("voting_event.event_id"), nullable=False)
+    event_id = Column(Integer,
+                      ForeignKey("voting_event.event_id", onupdate="CASCADE", ondelete="CASCADE"),
+                      nullable=False)
     option_text = Column(VARCHAR(length=255), nullable=False)
-
+    
+    # Relationship definition
     voting_event = relationship("VotingEvent", back_populates="poll_option")
-
+    
     def to_dict(self) -> dict:
         """Converts the model instance to a dictionary."""
         return {
