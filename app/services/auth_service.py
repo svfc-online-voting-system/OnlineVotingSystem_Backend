@@ -125,7 +125,7 @@ class UserRegistrationService:  # pylint: disable=R0903
             verification_url=f"{front_end_verify_email_url}{verification_token}",
             user_name=user_data.get("email"),
         )
-        send_mail(
+        return send_mail(
             message=message,
             email=user_data.get("email"),
             subject="VoteVoyage Onboarding 🎉",
