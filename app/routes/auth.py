@@ -242,7 +242,7 @@ class GenerateOTP(MethodView):
         return set_response(200, {"code": "success", "message": "OTP Generated"})
 
 
-@auth_blp.route("/verify-email/<string:token>")
+@auth_blp.route("/verify-email/")
 class VerifyEmail(MethodView):
     @auth_blp.arguments(EmailVerificationSchema, location="query")
     @auth_blp.response(200, ApiResponse)

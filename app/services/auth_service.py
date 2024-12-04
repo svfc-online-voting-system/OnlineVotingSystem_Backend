@@ -89,9 +89,14 @@ class UserRegistrationService:  # pylint: disable=R0903
 
     @staticmethod
     def register_user(user_data):  # pylint: disable=C0116
-        front_end_verify_email_url = (
-            getenv("LOCAL_FRONTEND_URL", "") + "auth/verify-email/"
-        )
+        LIVE_FRONTEND_URL = getenv("LIVE_FRONTEND_URL", "")
+        ENVIRONMENT = getenv("ENVIRONMENT", "")
+        if ENVIRONMENT == "development":
+            front_end_verify_email_url = (
+                getenv("LOCAL_FRONTEND_URL", "") + "/auth/verify-email/"
+            )
+        else:
+            front_end_verify_email_url = LIVE_FRONTEND_URL + "/auth/verify-email/"
         is_email_exists = UserOperations.is_email_exists(user_data.get("email"))
         if is_email_exists:
             raise EmailAlreadyTaken("Email already taken.")
