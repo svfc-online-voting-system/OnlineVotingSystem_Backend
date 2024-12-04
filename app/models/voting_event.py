@@ -6,9 +6,6 @@ from uuid import UUID
 from sqlalchemy import (
     Column,
     Integer,
-    VARCHAR,
-    BINARY,
-    Enum,
     Text,
     DateTime,
     TIMESTAMP,
@@ -16,7 +13,7 @@ from sqlalchemy import (
     and_,
     select,
     update,
-    ForeignKey,
+    ForeignKey, CheckConstraint, text, String, LargeBinary,
 )
 from sqlalchemy.exc import OperationalError, IntegrityError, DatabaseError, DataError
 from sqlalchemy.orm import relationship
@@ -28,49 +25,60 @@ from app.models.user import User
 from app.utils.engine import get_session
 
 
-class VotingEvent(Base):  # pylint: disable=R0903
+class VotingEvent(Base):
     """
-    SQLAlchemy model representing a voting event in the database.
-
-    Contains event details like type (poll/electoral), title, description, dates,
-    status, and approval state. Links to User model through created_by field.
-    Tracks event lifecycle with timestamps and soft deletion.
+    SQLAlchemy model for the 'voting_event' table with PostgreSQL compatibility.
     """
-
+    
     __tablename__ = "voting_event"
+    
     event_id = Column(Integer, primary_key=True, autoincrement=True)
-    uuid = Column(BINARY(16), nullable=False, unique=True)
-    event_type = Column(Enum("poll", "electoral"), nullable=False)
-    title = Column(VARCHAR(255), nullable=False)
+    uuid = Column(LargeBinary(16), nullable=False, unique=True)  # Maps to BYTEA
+    event_type = Column(
+        String,
+        CheckConstraint("event_type IN ('poll', 'electoral')", "voting_event_event_type_check"), nullable=False,
+    )
+    title = Column(String(255), nullable=False)
     description = Column(Text, nullable=False)
-    start_date = Column(DateTime, nullable=False)
+    start_date = Column(
+        DateTime, nullable=False, server_default=text("CURRENT_TIMESTAMP")
+    )
     end_date = Column(DateTime, nullable=False)
     status = Column(
-        Enum("upcoming", "active", "completed", "cancelled"), nullable=False
+        String,
+        CheckConstraint(
+            sqltext="status IN ('upcoming', 'active', 'completed', 'cancelled')",
+            name="voting_event_status_check"
+        ), server_default=text("'upcoming'"), nullable=False
     )
-    created_by = Column(ForeignKey("user.user_id"), nullable=False)
-    created_at = Column(TIMESTAMP, nullable=False)
-    last_modified_at = Column(TIMESTAMP, nullable=False)
-    approved = Column(Boolean, nullable=False)
-    is_deleted = Column(Boolean, nullable=False, default=False)
-
+    created_by = Column(
+        Integer, ForeignKey("user.user_id", onupdate="CASCADE", ondelete="NO ACTION"), nullable=False
+    )
+    created_at = Column(
+        TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP")
+    )
+    last_modified_at = Column(
+        TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP")
+    )
+    approved = Column(Boolean, nullable=False, server_default=text("false"))
+    is_deleted = Column(Boolean, nullable=False, server_default=text("false"))
+    
     user = relationship(
         "User",
         back_populates="voting_event",
         cascade="save-update, merge, expunge, refresh-expire",
     )
-
     poll_option = relationship(
         "PollOption",
         back_populates="voting_event",
         cascade="all, delete-orphan",
     )
-
+    
     def to_dict(self):
         """Converts the model to a dictionary."""
         return {
             "event_id": self.event_id,
-            "uuid": UUID(bytes=self.uuid).hex,  # type: ignore
+            "uuid": UUID(bytes=self.uuid).hex,  # Convert binary UUID to string
             "event_type": self.event_type,
             "title": self.title,
             "description": self.description,
@@ -83,17 +91,17 @@ class VotingEvent(Base):  # pylint: disable=R0903
             "approved": self.approved,
             "is_deleted": self.is_deleted,
         }
-
+    
     @classmethod
     def uuid_to_bin(cls, uuid_str):
         """Convert string UUID to binary format"""
         return UUID(uuid_str).bytes
-
+    
     @classmethod
     def bin_to_uuid(cls, uuid_bin):
         """Convert binary UUID to string format"""
         return str(UUID(bytes=uuid_bin))
-
+    
     @classmethod
     def format_uuid(cls, uuid_str):
         """Format UUID string with hyphens"""
@@ -101,7 +109,6 @@ class VotingEvent(Base):  # pylint: disable=R0903
             f"{uuid_str[:8]}-{uuid_str[8:12]}-{uuid_str[12:16]}-"
             f"{uuid_str[16:20]}-{uuid_str[20:]}"
         )
-
 
 class VotingEventOperations:
     """

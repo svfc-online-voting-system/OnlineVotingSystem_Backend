@@ -244,7 +244,7 @@ class GenerateOTP(MethodView):
 
 @auth_blp.route("/verify-email/<string:token>")
 class VerifyEmail(MethodView):
-    @auth_blp.arguments(EmailVerificationSchema, location="view_args")
+    @auth_blp.arguments(EmailVerificationSchema, location="query")
     @auth_blp.response(200, ApiResponse)
     @auth_blp.doc(
         description="Verify email using verification token",
@@ -254,10 +254,9 @@ class VerifyEmail(MethodView):
             "422": {"description": "Validation error"},
         },
     )
-    def get(self, args):
-        token = args["token"]
+    def get(self, query_params):
         auth_service_verify_email = AuthService()
-        if auth_service_verify_email.verify_email(token):
+        if auth_service_verify_email.verify_email(query_params.get("token")):
             return set_response(
                 200, {"code": "success", "message": "Email verified successfully"}
             )

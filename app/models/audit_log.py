@@ -1,6 +1,6 @@
 """ This module contains the AuditLog model """
 
-from sqlalchemy import Column, Integer, VARCHAR, BINARY, TIMESTAMP
+from sqlalchemy import Column, Integer, VARCHAR, TIMESTAMP, UniqueConstraint, LargeBinary, ForeignKey
 from sqlalchemy.exc import OperationalError, IntegrityError, DatabaseError, DataError
 
 from app.models.base import Base
@@ -9,15 +9,24 @@ from app.utils.engine import get_session
 
 class AuditLog(Base):  # pylint: disable=R0903
     """AuditLog model class that represents the audit_log table."""
-
+    
     __tablename__ = "audit_log"
+    
     log_id = Column(Integer, primary_key=True, autoincrement=True)
-    uuid = Column(BINARY(16), nullable=False, unique=True)
-    user_id = Column(Integer, nullable=False)
-    event_id = Column(Integer, nullable=False)
+    uuid = Column(LargeBinary(16), nullable=False, unique=True)  # Use LargeBinary for bytea
+    user_id = Column(Integer,
+                     ForeignKey("user.user_id", onupdate="CASCADE", ondelete="NO ACTION"),
+                     nullable=False)
+    event_id = Column(Integer,
+                      ForeignKey("voting_event.event_id", onupdate="CASCADE", ondelete="NO ACTION"),
+                      nullable=False)
     action = Column(VARCHAR(50), nullable=False)
     details = Column(VARCHAR(255), nullable=True)
-    timestamp = Column(TIMESTAMP, nullable=False)
+    timestamp = Column(TIMESTAMP, nullable=False, default="CURRENT_TIMESTAMP")  # PostgreSQL's timestamp default
+    
+    __table_args__ = (
+        UniqueConstraint("uuid", name="audit_log_uuid_key"),
+    )
 
 
 class PollRelatedLogOperations:  # pylint: disable=R0903
