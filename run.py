@@ -35,23 +35,22 @@ def create_app_with_cors():
     """Creates Flask app with proper CORS configuration"""
     app = create_app()
 
-    allowed_origins = [
-        getenv("LOCAL_FRONTEND_URL", "https://localhost:4200").rstrip("/"),
-        getenv("LIVE_FRONTEND_URL", "").rstrip("/"),
-        "https://online-voting-system-657c8.firebaseapp.com/",
-    ]
+    allowed_origins = ["https://localhost:4200", getenv("LIVE_FRONTEND_URL", "")]
 
     CORS(
         app,
         resources={
             r"/api/*": {
                 "origins": allowed_origins,
-                "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+                "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
                 "allow_headers": [
                     "Content-Type",
                     "Authorization",
                     "Access-Control-Allow-Credentials",
                     "X-CSRF-TOKEN",
+                    "Access-Control-Allow-Origin",
+                    "csrf-refresh-token",
+                    "refresh_token_cookie",
                 ],
                 "supports_credentials": True,
                 "expose_headers": ["Content-Range", "X-Content-Range"],

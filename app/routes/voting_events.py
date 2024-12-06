@@ -58,9 +58,9 @@ class GetVotingEventBy(MethodView):
             "422": {"description": "Validation error"},
         },
     )
-    @jwt_required(False)
+    # @jwt_required(False)
     def get(self, query_params):
-        get_jwt()
+        # get_jwt()
         voting_event_type = query_params.get("voting_event_type")
         voting_status = query_params.get("voting_status")
 
@@ -103,9 +103,10 @@ class GetCurrentTally(MethodView):
             "422": {"description": "Validation error"},
         },
     )
-    @jwt_required(False)
+    @jwt_required(True)
     def get(self, query_params):
         get_jwt()
+        print(get_jwt())
         event_uuid = query_params.get("uuid")
         event_type = query_params.get("event_type")
         tally_info = VotingEventService.get_current_tally(event_uuid, event_type)

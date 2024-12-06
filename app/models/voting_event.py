@@ -13,7 +13,11 @@ from sqlalchemy import (
     and_,
     select,
     update,
-    ForeignKey, CheckConstraint, text, String, LargeBinary,
+    ForeignKey,
+    CheckConstraint,
+    text,
+    String,
+    LargeBinary,
 )
 from sqlalchemy.exc import OperationalError, IntegrityError, DatabaseError, DataError
 from sqlalchemy.orm import relationship
@@ -29,14 +33,17 @@ class VotingEvent(Base):
     """
     SQLAlchemy model for the 'voting_event' table with PostgreSQL compatibility.
     """
-    
+
     __tablename__ = "voting_event"
-    
+
     event_id = Column(Integer, primary_key=True, autoincrement=True)
     uuid = Column(LargeBinary(16), nullable=False, unique=True)  # Maps to BYTEA
     event_type = Column(
         String,
-        CheckConstraint("event_type IN ('poll', 'electoral')", "voting_event_event_type_check"), nullable=False,
+        CheckConstraint(
+            "event_type IN ('poll', 'electoral')", "voting_event_event_type_check"
+        ),
+        nullable=False,
     )
     title = Column(String(255), nullable=False)
     description = Column(Text, nullable=False)
@@ -48,11 +55,15 @@ class VotingEvent(Base):
         String,
         CheckConstraint(
             sqltext="status IN ('upcoming', 'active', 'completed', 'cancelled')",
-            name="voting_event_status_check"
-        ), server_default=text("'upcoming'"), nullable=False
+            name="voting_event_status_check",
+        ),
+        server_default=text("'upcoming'"),
+        nullable=False,
     )
     created_by = Column(
-        Integer, ForeignKey("user.user_id", onupdate="CASCADE", ondelete="NO ACTION"), nullable=False
+        Integer,
+        ForeignKey("user.user_id", onupdate="CASCADE", ondelete="NO ACTION"),
+        nullable=False,
     )
     created_at = Column(
         TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP")
@@ -62,7 +73,7 @@ class VotingEvent(Base):
     )
     approved = Column(Boolean, nullable=False, server_default=text("false"))
     is_deleted = Column(Boolean, nullable=False, server_default=text("false"))
-    
+
     user = relationship(
         "User",
         back_populates="voting_event",
@@ -73,7 +84,7 @@ class VotingEvent(Base):
         back_populates="voting_event",
         cascade="all, delete-orphan",
     )
-    
+
     def to_dict(self):
         """Converts the model to a dictionary."""
         return {
@@ -91,17 +102,17 @@ class VotingEvent(Base):
             "approved": self.approved,
             "is_deleted": self.is_deleted,
         }
-    
+
     @classmethod
     def uuid_to_bin(cls, uuid_str):
         """Convert string UUID to binary format"""
         return UUID(uuid_str).bytes
-    
+
     @classmethod
     def bin_to_uuid(cls, uuid_bin):
         """Convert binary UUID to string format"""
         return str(UUID(bytes=uuid_bin))
-    
+
     @classmethod
     def format_uuid(cls, uuid_str):
         """Format UUID string with hyphens"""
@@ -109,6 +120,7 @@ class VotingEvent(Base):
             f"{uuid_str[:8]}-{uuid_str[8:12]}-{uuid_str[12:16]}-"
             f"{uuid_str[16:20]}-{uuid_str[20:]}"
         )
+
 
 class VotingEventOperations:
     """
@@ -401,8 +413,8 @@ class UserOperations:  # pylint: disable=R0903
                 .join(User, VotingEvent.created_by == User.user_id)
                 .where(
                     and_(
-                        VotingEvent.is_deleted.is_(False),
-                        VotingEvent.approved.is_(True),
+                        VotingEvent.is_deleted.is_(False)
+                        # VotingEvent.approved.is_(True),
                     )
                 )
             )

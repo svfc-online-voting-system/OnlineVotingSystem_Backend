@@ -5,6 +5,8 @@
     Additionally, it is also responsible for handling the exceptions
 """
 
+# pylint: disable=C0103
+
 import base64
 import hashlib
 import uuid

@@ -1,6 +1,6 @@
 """ Set up the logger for the application. """
 
-from logging import INFO, Formatter
+from logging import INFO, Formatter, getLogger, DEBUG
 from logging.handlers import RotatingFileHandler
 from os import path, makedirs
 
@@ -13,6 +13,7 @@ def setup_logging(app: Flask):  # pylint: disable=C0116
     file_handler = RotatingFileHandler(
         path.join(log_dir, "app.log"), maxBytes=100000, backupCount=3
     )
+    getLogger("flask_cors").level = DEBUG
     file_handler.setLevel(INFO)
     file_handler.setFormatter(Formatter("%(asctime)s - %(levelname)s - %(message)s"))
     app.logger.addHandler(file_handler)
